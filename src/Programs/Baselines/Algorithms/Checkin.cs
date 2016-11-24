@@ -35,12 +35,12 @@ namespace Baselines.Algorithms
 
 		public Checkin (int user, int item, float lat, float lng, DateTime date, IList<int> candidates_checked, IList<int> candidates_all)
 		{
-			this.User = user;
-			this.Item = item;
-			this.Coordinates = new Coordinate(lat, lng);
-			this.Date = date;
-			this.CandidatesChecked = candidates_checked;
-			this.CandidatesAll = candidates_all;
+			User = user;
+			Item = item;
+			Coordinates = new Coordinate(lat, lng);
+			Date = date;
+			CandidatesChecked = candidates_checked;
+			CandidatesAll = candidates_all;
 		}
 	}
 
@@ -55,8 +55,8 @@ namespace Baselines.Algorithms
 
 		public Coordinate (float lat, float lng)
 		{
-			this.Latitude = lat;
-			this.Longitude = lng;
+			Latitude = lat;
+			Longitude = lng;
 		}
 	}
 

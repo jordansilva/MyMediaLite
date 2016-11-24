@@ -45,6 +45,8 @@
     <Compile Include="Algorithms\Checkin.cs" />
     <Compile Include="Helper\EnumarableConverter.cs" />
     <Compile Include="Helper\Utils.cs" />
+    <Compile Include="Algorithms\IBaseline.cs" />
+    <Compile Include="Algorithms\QueryResult.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\MyMediaLite\MyMediaLite.csproj">

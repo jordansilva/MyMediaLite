@@ -41,26 +41,58 @@ namespace Baselines
 		{
 			string model = "/Volumes/Tyr/Projects/UFMG/Baselines/MyMediaLite-3.11/bin/model-100/model-n100.test";
 			string validation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/fold_1/validation.txt";
-			string test = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/fold_1/test.txt";
+			//string test = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/fold_1/test.txt";
 
-			IList<Checkin> data;
-			
-			TimeSpan t = Wrap.MeasureTime (delegate () { data = Helper.Utils.ReadCheckins (validation); });
-			Console.WriteLine ("Read data: {0} seconds", t.TotalSeconds);
+			//Loading data
+			IList<Checkin> data = LoadData(validation);
 
-			//var algorithm = new RunBPRMF(model);
+			//Loading algorithm
+			IBaseline algorithm = LoadModel (model);
 
-			//algorithm.Predict(
+			//Evaluation
+			QueryResult result = null;
+			t = Wrap.MeasureTime (delegate () { result = Evaluation (algorithm, data); });
+			Console.WriteLine ("Predicting {0} items: {1} seconds", result.Items.Count(), t.TotalSeconds);
+
 			#if DEBUG
     		Console.WriteLine ("Press enter to close...");
 			Console.ReadLine ();
 			#endif
 		}
 
-		void Evaluation ()
+		IBaseline LoadModel (string model)
 		{
-			throw new NotImplementedException ();
-			//ReciprocalRank.Compute()
+			IBaseline algorithm = null;
+			TimeSpan t = Wrap.MeasureTime (delegate () { algorithm = new RunBPRMF (model); });
+			Console.WriteLine ("Loading model: {0} seconds", t.TotalSeconds);
+			return algorithm;
+		}
+
+		IList<Checkin> LoadData (String filename)
+		{
+			IList<Checkin> result = null;
+			Console.WriteLine ("Loading data: {0}", filename);
+			TimeSpan t = Wrap.MeasureTime (delegate () { result = Helper.Utils.ReadCheckins (filename); });
+			Console.WriteLine ("Read data: {0} seconds", t.TotalSeconds);
+			return result;
+		}
+
+		QueryResult Evaluation (IBaseline baseline, IList<Checkin> test)
+		{
+			QueryResult queryResult = new QueryResult (baseline.Name (), baseline.ToString ());
+			int i = 0;
+			double evaluation = 0.0f;
+			foreach (Checkin item in test) {
+				i++;
+				IList<Tuple<int, float>> ratings = baseline.Predict (item.User, item.CandidatesAll);
+				queryResult.Add (i, ratings, String.Format ("u{0}", item.User));
+				evaluation += ReciprocalRank.Compute (ratings.Select (x => x.Item1).ToList (), new List<int> () { item.Item });
+			}
+
+			evaluation = evaluation/(i*1.0f);
+			queryResult.AddMetric ("MRR", evaluation);
+			Console.WriteLine ("MRR {0}", evaluation);
+			return queryResult;
 		}
 
 

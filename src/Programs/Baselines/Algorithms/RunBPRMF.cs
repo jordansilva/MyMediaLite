@@ -16,14 +16,15 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using MyMediaLite.ItemRecommendation;
-using MyMediaLite.Data;
 
 namespace Baselines.Algorithms
 {
-	public class RunBPRMF
+	public class RunBPRMF : IBaseline
 	{
+		private const string ALGORITHM_NAME = "BPRMF";
 		protected BPRMF mAlgorithm;
 
 		public RunBPRMF()
@@ -42,9 +43,15 @@ namespace Baselines.Algorithms
 			mAlgorithm.UpdateJ = true;
 		}
 
-		public RunBPRMF (string model) : this()
+		public RunBPRMF (string model)
 		{
+			mAlgorithm = new BPRMF ();
 			mAlgorithm.LoadModel(model);
+		}
+
+		public string Name ()
+		{
+			return ALGORITHM_NAME;
 		}
 
 		public IList<Tuple<int, float>> Predict (int user, IList<int> items)
@@ -56,6 +63,7 @@ namespace Baselines.Algorithms
 				predictions.Add (rating);
 			}
 
+			predictions = predictions.OrderByDescending (x => x.Item2).ToList ();
 			return predictions;
 		}
 
@@ -68,6 +76,11 @@ namespace Baselines.Algorithms
 		public void Train ()
 		{
 			mAlgorithm.Train();
+		}
+
+		public override string ToString ()
+		{
+			return mAlgorithm.ToString ();
 		}
 	}
 }
