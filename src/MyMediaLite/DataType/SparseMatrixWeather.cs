@@ -1,4 +1,4 @@
-// Copyright (C) 2010, 2011, 2012 Zeno Gantner
+﻿// Copyright (C) 2010, 2011, 2012 Zeno Gantner
 //
 // This file is part of MyMediaLite.
 //
@@ -26,7 +26,7 @@ namespace MyMediaLite.DataType
 	/// Access is internally done by binary search.
 	/// </remarks>
 	/// <typeparam name="T">the matrix element type, must have a default constructor/value</typeparam>
-	public class SparseMatrix<T> : IMatrix<T> where T : new()
+	public class SparseMatrixWeather<T> : IMatrix<T> where T : new()
 	{
 		/// <summary>List of lists that stores the values of the entries</summary>
 		protected internal List<List<T>> value_list = new List<List<T>> ();
@@ -140,7 +140,7 @@ namespace MyMediaLite.DataType
 		/// <summary>Create a sparse matrix with a given number of rows</summary>
 		/// <param name="num_rows">the number of rows</param>
 		/// <param name="num_cols">the number of columns</param>
-		public SparseMatrix (int num_rows, int num_cols)
+		public SparseMatrixWeather (int num_rows, int num_cols)
 		{
 			for (int i = 0; i < num_rows; i++) {
 				index_list.Add (new List<int> ());
@@ -153,7 +153,7 @@ namespace MyMediaLite.DataType
 		/// Copy constructor
 		/// </summary>
 		/// <param name="toCopy">To copy.</param>
-		public SparseMatrix (SparseMatrix<T> toCopy)
+		public SparseMatrixWeather (SparseMatrix<T> toCopy)
 		{
 			foreach (Tuple<int, int> tuple in toCopy.NonEmptyEntryIDs) {
 				this [tuple.Item1, tuple.Item2] = toCopy [tuple.Item1, tuple.Item2];

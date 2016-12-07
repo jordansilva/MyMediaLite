@@ -15,15 +15,19 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace MyMediaLite.IO
 {
 	/// <summary>Extensions for vector-like data</summary>
 	public static class VectorExtensions
 	{
+
 		/// <summary>Write a collection of doubles to a TextWriter</summary>
 		/// <param name="writer">a <see cref="TextWriter"/></param>
 		/// <param name="vector">a collection of double values</param>

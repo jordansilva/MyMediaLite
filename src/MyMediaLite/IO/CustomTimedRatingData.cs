@@ -15,7 +15,6 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 using System;
-using System.Data;
 using System.Globalization;
 using System.IO;
 using MyMediaLite.Data;
@@ -23,7 +22,7 @@ using MyMediaLite.Data;
 namespace MyMediaLite.IO
 {
 	/// <summary>Class that offers methods for reading in rating data with time information</summary>
-	public static class TimedRatingData
+	public static class CustomTimedRatingData
 	{
 		/// <summary>Read in rating data from a file</summary>
 		/// <param name="filename">the name of the file to read from</param>
@@ -73,17 +72,19 @@ namespace MyMediaLite.IO
 			if (ignore_first_line)
 				reader.ReadLine();
 
-			var ratings = new MyMediaLite.Data.TimedRatings();
+			var ratings = new TimedRatings();
 			var time_split_chars = new char[] { ' ', '-', ':' };
 
 			string line;
-			int date_time_offset = test_rating_format == TestRatingFileFormat.WITH_RATINGS ? 3 : 2;
+			int date_time_offset = test_rating_format == TestRatingFileFormat.WITHOUT_RATINGS ? 2 : 3;
 			while ((line = reader.ReadLine()) != null)
 			{
 				if (line.Length == 0)
 					continue;
 
-				string[] tokens = line.Split(Constants.SPLIT_CHARS);
+				int start1 = line.IndexOf ("\"[", StringComparison.InvariantCulture);
+				int end1 = line.IndexOf ("]\"", StringComparison.InvariantCulture) + 3;
+				string[] tokens = line.Remove(start1, end1-start1).Split(Constants.SPLIT_CHARS);
 
 				if (test_rating_format == TestRatingFileFormat.WITH_RATINGS && tokens.Length < 4)
 					throw new FormatException("Expected at least 4 columns: " + line);
@@ -94,7 +95,9 @@ namespace MyMediaLite.IO
 				int item_id = item_mapping.ToInternalID(tokens[1]);
 				float rating = test_rating_format == TestRatingFileFormat.WITH_RATINGS ? float.Parse(tokens[2], CultureInfo.InvariantCulture) : 0;
 				string date_string = tokens[date_time_offset];
-				if (tokens[date_time_offset].StartsWith("\"") && tokens.Length > date_time_offset + 1 && tokens[date_time_offset + 1].EndsWith("\""))
+				if (tokens[date_time_offset].StartsWith("\"", StringComparison.InvariantCulture) 
+				    && tokens.Length > date_time_offset + 1 
+				    && tokens[date_time_offset + 1].EndsWith("\"", StringComparison.InvariantCulture))
 				{
 					date_string = tokens[date_time_offset] + " " + tokens[date_time_offset + 1];
 					date_string = date_string.Substring(1, date_string.Length - 2);
@@ -103,35 +106,33 @@ namespace MyMediaLite.IO
 				uint seconds;
 				if (date_string.Length == 19) // format "yyyy-mm-dd hh:mm:ss"
 				{
-					var date_time_tokens = date_string.Split(time_split_chars);
-					ratings.Add(
+					var date_time_tokens = date_string.Split (time_split_chars);
+					ratings.Add (
 						user_id, item_id, rating,
-						new DateTime(
-							int.Parse(date_time_tokens[0]),
-							int.Parse(date_time_tokens[1]),
-							int.Parse(date_time_tokens[2]),
-							int.Parse(date_time_tokens[3]),
-							int.Parse(date_time_tokens[4]),
-							int.Parse(date_time_tokens[5])));
-				}
-				else if (date_string.Length == 10 && date_string[4] == '-') // format "yyyy-mm-dd"
-				{
-					var date_time_tokens = date_string.Split(time_split_chars);
-					ratings.Add(
+						new DateTime (
+							int.Parse (date_time_tokens [0]),
+							int.Parse (date_time_tokens [1]),
+							int.Parse (date_time_tokens [2]),
+							int.Parse (date_time_tokens [3]),
+							int.Parse (date_time_tokens [4]),
+							int.Parse (date_time_tokens [5])));
+				} else if (date_string.Length == 10 && date_string [4] == '-') // format "yyyy-mm-dd"
+				  {
+					var date_time_tokens = date_string.Split (time_split_chars);
+					ratings.Add (
 						user_id, item_id, rating,
-						new DateTime(
-							int.Parse(date_time_tokens[0]),
-							int.Parse(date_time_tokens[1]),
-							int.Parse(date_time_tokens[2])));
+						new DateTime (
+							int.Parse (date_time_tokens [0]),
+							int.Parse (date_time_tokens [1]),
+							int.Parse (date_time_tokens [2])));
+				} else if (uint.TryParse (date_string, out seconds)) // unsigned integer value, interpreted as seconds since Unix epoch
+				  {
+					var time = new DateTime (seconds * 10000000L).AddYears (1969);
+					var offset = TimeZone.CurrentTimeZone.GetUtcOffset (time);
+					ratings.Add (user_id, item_id, rating, time - offset);
+				} else {
+					ratings.Add (user_id, item_id, rating, DateTime.Parse (date_string, CultureInfo.InvariantCulture));
 				}
-				else if (uint.TryParse(date_string, out seconds)) // unsigned integer value, interpreted as seconds since Unix epoch
-				{
-					var time = new DateTime(seconds * 10000000L).AddYears(1969);
-					var offset = TimeZone.CurrentTimeZone.GetUtcOffset(time);
-					ratings.Add(user_id, item_id, rating, time - offset);
-				}
-				else
-					ratings.Add(user_id, item_id, rating, DateTime.Parse(date_string, CultureInfo.InvariantCulture));
 
 				if (ratings.Count % 200000 == 199999)
 					Console.Error.Write(".");

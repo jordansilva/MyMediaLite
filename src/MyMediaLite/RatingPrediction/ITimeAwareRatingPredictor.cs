@@ -16,6 +16,7 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
+using System.Collections.Generic;
 using MyMediaLite.Data;
 
 namespace MyMediaLite.RatingPrediction
@@ -36,6 +37,10 @@ namespace MyMediaLite.RatingPrediction
 		/// <param name='user_id'>the user ID</param>
 		/// <param name='item_id'>the item ID</param>
 		/// <param name='time'>the time of the rating event</param>
-		float Predict(int user_id, int item_id, DateTime time);
+		float Predict (int user_id, int item_id, DateTime time);
+
+		IList<Tuple<int, float>> RecommendTime (int user_id, DateTime time, int n = -1,
+												ICollection<int> ignore_items = null,
+												ICollection<int> candidate_items = null);
 	}
 }

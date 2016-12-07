@@ -107,5 +107,218 @@ namespace MyMediaLite.Data
 			base.GetObjectData(info, context);
 			info.AddValue("Times", this.Times);
 		}
+
+		#region [ Weather Extension ]
+
+		public virtual Dictionary<int, IList<DateTime>> getTimesItemDict ()
+		{
+			Dictionary<int, IList<DateTime>> times = new Dictionary<int, IList<DateTime>> ();
+
+			for (int index = 0; index < Values.Count; index++) {
+				if (!times.ContainsKey (Items [index]))
+					times.Add (Items [index], new List<DateTime> ());
+				times [Items [index]].Add (Times [index]);
+			}
+			return times;
+		}
+
+		/// <summary>
+		/// Gets the times of a user.
+		/// </summary>
+		/// <returns>The times.</returns>
+		/// <param name="user_id">User identifier.</param>
+		public virtual IList<DateTime> getTimesOfUser (int user_id)
+		{
+			IList<DateTime> dateTimes = new List<DateTime> ();
+			for (int index = 0; index < Values.Count; index++) {
+				if (Users [index] == user_id)
+					dateTimes.Add (Times [index]);
+			}
+			if (dateTimes.Count == 0)
+				throw new KeyNotFoundException (string.Format ("no rating for user {0}found.", user_id));
+			return dateTimes;
+		}
+
+		/// <summary>
+		/// Gets the times of a user and item.
+		/// </summary>
+		/// <returns>The times.</returns>
+		/// <param name="user_id">User identifier.</param>
+		/// <param name="item_id">Item identifier.</param>
+		public virtual IList<DateTime> getTimes (int user_id, int item_id)
+		{
+			IList<DateTime> dateTimes = new List<DateTime> ();
+			for (int index = 0; index < Values.Count; index++) {
+				if (Users [index] == user_id && Items [index] == item_id)
+					dateTimes.Add (Times [index]);
+			}
+			if (dateTimes.Count == 0)
+				throw new KeyNotFoundException (string.Format ("no rating for user {0} and item {1} found.", user_id, item_id));
+			return dateTimes;
+		}
+
+		/// <summary>
+		/// Gets the checkin count.
+		/// </summary>
+		/// <returns>The checkin count.</returns>
+		/// <param name="user_id">User identifier.</param>
+		/// <param name="item_id">Item identifier.</param>
+		public virtual int getCheckinCount (int user_id, int item_id)
+		{
+			int count = 0;
+			for (int index = 0; index < Values.Count; index++) {
+				if (Users [index] == user_id && Items [index] == item_id)
+					count += 1;
+			}
+			return count;
+		}
+
+		/// <summary>
+		/// Gets the items of user.
+		/// </summary>
+		/// <returns>The items of user.</returns>
+		/// <param name="user_id">User identifier.</param>
+		public virtual IList<int> getItemsOfUser (int user_id)
+		{
+			IList<int> items = new List<int> ();
+			for (int index = 0; index < Values.Count; index++) {
+				foreach (int item_id in AllItems) {
+					if (Users [index] == user_id && Items [index] == item_id) {
+						items.Add (item_id);
+						continue;
+					}
+				}
+			}
+			return items;
+
+		}
+
+		public virtual Dictionary<int, IList<Tuple<int, DateTime>>> getItemsUserDictWithTime ()
+		{
+			Dictionary<int, IList<Tuple<int, DateTime>>> items = new Dictionary<int, IList<Tuple<int, DateTime>>> ();
+			for (int index = 0; index < Values.Count; index++) {
+				//						if (Users [index] == user_id && Items [index] == item_id) {
+				if (!items.ContainsKey (Users [index]))
+					items.Add (Users [index], new List<Tuple<int, DateTime>> ());
+				items [Users [index]].Add (Tuple.Create (Items [index], Times [index]));
+				//						}
+			}
+			//				}
+			//			}
+			return items;
+		}
+
+		/// <summary>
+		/// Gets the items of all users.
+		/// </summary>
+		/// <returns>The items user dict.</returns>
+		public virtual Dictionary<int, IList<int>> getItemsUserDict ()
+		{
+			Dictionary<int, IList<int>> items = new Dictionary<int, IList<int>> ();
+
+			//			foreach(int user_id in AllUsers){
+			//				foreach (int item_id in AllItems) {
+			for (int index = 0; index < Values.Count; index++) {
+				//						if (Users [index] == user_id && Items [index] == item_id) {
+				if (!items.ContainsKey (Users [index]))
+					items.Add (Users [index], new List<int> ());
+				items [Users [index]].Add (Items [index]);
+				continue;
+				//						}
+			}
+			//				}
+			//			}
+			return items;
+		}
+
+		/// <summary>
+		/// Gets the times of all users.
+		/// </summary>
+		/// <returns>The times user dict.</returns>
+		public virtual Dictionary<int, IList<DateTime>> getTimesUserDict ()
+		{
+			Dictionary<int, IList<DateTime>> times = new Dictionary<int, IList<DateTime>> ();
+
+			//			foreach(int user_id in AllUsers){
+			//				foreach (DateTime time_id in AllTimes) {
+			for (int index = 0; index < Values.Count; index++) {
+				//						if (Users [index] == user_id && Times [index] == time_id) {
+				if (!times.ContainsKey (Users [index]))
+					times.Add (Users [index], new List<DateTime> ());
+				times [Users [index]].Add (Times [index]);
+				continue;
+				//						}
+			}
+			//				}
+			//			}
+			return times;
+		}
+
+
+		///
+		public override void RemoveUser (int user_id)
+		{
+			var items_to_update = new HashSet<int> ();
+
+			for (int index = 0; index < Count; index++)
+				if (Users [index] == user_id) {
+					items_to_update.Add (Items [index]);
+
+					Users.RemoveAt (index);
+					Items.RemoveAt (index);
+					Values.RemoveAt (index);
+					Times.RemoveAt (index);
+
+					index--; // avoid missing an entry
+				}
+
+			UpdateCountsAndIndices (new HashSet<int> () { user_id }, items_to_update);
+
+			if (MaxUserID == user_id)
+				MaxUserID--;
+		}
+
+		///
+		public void RemoveUsers (IList<int> users)
+		{
+			var items_to_update = new HashSet<int> ();
+			Dictionary<int, HashSet<int>> user_items_to_update = new Dictionary<int, HashSet<int>> ();
+			int i = 0;
+			Console.WriteLine (Count);
+			for (int index = 0; index < Count; index++) {
+				if (i % 1000 == 0)
+					Console.WriteLine (i);
+				i++;
+				if (users.Contains (Users [index])) {
+					if (!user_items_to_update.ContainsKey (Users [index]))
+						user_items_to_update.Add (Users [index], new HashSet<int> ());
+					if (!user_items_to_update [Users [index]].Contains (Items [index]))
+						user_items_to_update [Users [index]].Add (Items [index]);
+
+					Users.RemoveAt (index);
+					Items.RemoveAt (index);
+					Values.RemoveAt (index);
+					Times.RemoveAt (index);
+
+					index--; // avoid missing an entry
+				}
+			}
+			foreach (int user_id in users)
+				UpdateCountsAndIndices (new HashSet<int> () { user_id }, user_items_to_update [user_id]);
+			MaxUserID = Users.Max ();
+		}
+
+		/// <summary>all item IDs in the dataset</summary>
+		public virtual IList<DateTime> AllTimes {
+			get {
+				var result_set = new HashSet<DateTime> ();
+				for (int index = 0; index < Times.Count; index++)
+					result_set.Add (Times [index]);
+				return result_set.ToArray ();
+			}
+		}
+
+
+		#endregion
 	}
 }

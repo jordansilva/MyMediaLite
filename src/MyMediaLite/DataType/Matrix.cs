@@ -17,6 +17,7 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace MyMediaLite.DataType
 {
@@ -26,7 +27,8 @@ namespace MyMediaLite.DataType
 	/// Indexes are zero-based.
 	/// </remarks>
 	/// <typeparam name="T">the type of the matrix entries</typeparam>
-	public class Matrix<T> : IMatrix<T>
+	[Serializable]
+	public class Matrix<T> : ISerializable, IMatrix<T>
 	{
 		/// <summary>Data array: data is stored in columns.</summary>
 		protected internal T[] data;
@@ -109,6 +111,13 @@ namespace MyMediaLite.DataType
 			for (int i = 0; i < dim1; i++)
 				for (int j = 0; j < dim2; j++)
 					this.data[i * dim2 + j] = data[i][j];
+		}
+
+		///
+		public Matrix (SerializationInfo info, StreamingContext context) {
+			data = (T [])info.GetValue ("data", typeof (T []));
+			dim1 = (int)info.GetValue ("dim1", typeof (int));
+			dim2 = (int)info.GetValue ("dim2", typeof (int));
 		}
 
 		///
@@ -264,5 +273,12 @@ namespace MyMediaLite.DataType
 				this[i, j] = v;
 		}
 
+		///
+		public void GetObjectData (SerializationInfo info, StreamingContext context)
+		{
+			info.AddValue ("data", data);
+			info.AddValue ("dim1", dim1);
+			info.AddValue ("dim2", dim2);
+		}
 	}
 }

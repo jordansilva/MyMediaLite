@@ -16,20 +16,12 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
-using System.Linq;
-namespace Baselines.Helper
+namespace Baselines.Commands
 {
-	public class EnumarableConverter : CsvHelper.TypeConversion.EnumerableConverter
+	public abstract class Command
 	{
-		public override bool CanConvertFrom (Type type)
+		public Command ()
 		{
-			return type == typeof (String) || type == typeof(string);
-		}
-
-		public override object ConvertFromString (CsvHelper.TypeConversion.TypeConverterOptions options, string text)
-		{
-			String[] arrText = text.Replace ("[", "").Replace ("]", "").Split (',');
-			return arrText.Select (m => Int32.Parse(m)).ToList ();
 		}
 	}
 }

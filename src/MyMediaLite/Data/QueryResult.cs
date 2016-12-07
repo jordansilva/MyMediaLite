@@ -17,8 +17,9 @@
 //
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
-namespace Baselines.Algorithms
+namespace MyMediaLite.Data
 {
 	public class QueryResult
 	{
@@ -40,9 +41,18 @@ namespace Baselines.Algorithms
 			Items.Add(QueryItem.Create (id, rank, description));				
 		}
 
-		public void AddMetric (String metric, double result)
+		public void AddMetric (string metric, double result)
 		{
 			Metrics.Add(Tuple.Create (metric, result));
+		}
+
+		public double GetMetric (string metric)
+		{
+			Tuple<string, double> tuple = Metrics.First (m => m.Item1.Equals (metric, StringComparison.OrdinalIgnoreCase));
+			if (tuple == null)
+				throw new Exception ("Metric does not exist!");
+			else
+				return tuple.Item2;
 		}
 	}
 

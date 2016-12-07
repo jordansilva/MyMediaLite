@@ -33,5 +33,74 @@ namespace MyMediaLite.Data
 		/// <param name="rating">the rating value</param>
 		/// <param name="time">A <see cref="DateTime"/> specifying the time of the rating event</param>
 		void Add(int user_id, int item_id, float rating, DateTime time);
+
+		#region [ Weather Extension ]
+
+
+		/// <summary>
+		/// Gets the times.
+		/// </summary>
+		/// <returns>The times.</returns>
+		/// <param name="user_id">User identifier.</param>
+		/// <param name="item_id">Item identifier.</param>
+		IList<DateTime> getTimes (int user_id, int item_id);
+
+
+		/// <summary>all times in the dataset</summary>
+		IList<DateTime> AllTimes { get; }
+
+		/// <summary>
+		/// Gets the times of a user.
+		/// </summary>
+		/// <returns>The times.</returns>
+		/// <param name="user_id">User identifier.</param>
+		IList<DateTime> getTimesOfUser (int user_id);
+
+		/// <summary>
+		/// Gets the checkin count.
+		/// </summary>
+		/// <returns>The checkin count.</returns>
+		/// <param name="user_id">User identifier.</param>
+		/// <param name="item_id">Item identifier.</param>
+		int getCheckinCount (int user_id, int item_id);
+
+		/// <summary>
+		/// Gets the items of user.
+		/// </summary>
+		/// <returns>The items of user.</returns>
+		/// <param name="user_id">User identifier.</param>
+		IList<int> getItemsOfUser (int user_id);
+
+		/// <summary>
+		/// Removes the users.
+		/// </summary>
+		/// <param name="users">Users.</param>
+		void RemoveUsers (IList<int> users);
+
+		/// <summary>
+		/// Gets the items of all users with Time.
+		/// </summary>
+		/// <returns>The items user dict.</returns>
+		Dictionary<int, IList<Tuple<int, DateTime>>> getItemsUserDictWithTime ();
+
+		/// <summary>
+		/// Gets the items of all users.
+		/// </summary>
+		/// <returns>The items user dict.</returns>
+		Dictionary<int, IList<int>> getItemsUserDict ();
+
+		/// <summary>
+		/// Gets the times of all users.
+		/// </summary>
+		/// <returns>The times user dict.</returns>
+		Dictionary<int, IList<DateTime>> getTimesUserDict ();
+
+		/// <summary>
+		/// Gets the times of all users.
+		/// </summary>
+		/// <returns>The times user dict.</returns>
+		Dictionary<int, IList<DateTime>> getTimesItemDict ();
+
+		#endregion
 	}
 }

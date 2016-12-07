@@ -265,6 +265,20 @@ namespace MyMediaLite.DataType
 			return result;
 		}
 
+		static public Matrix<double> MatrixDifference (Matrix<double> matrix1, Matrix<double> matrix2) {
+			if (matrix1.dim1 != matrix2.dim1)
+				throw new ArgumentException ("wrong row size: " + matrix1.dim1 + " vs. " + matrix2.dim1);
+
+			if (matrix1.dim2 != matrix2.dim2)
+				throw new ArgumentException ("wrong row size: " + matrix1.dim2 + " vs. " + matrix2.dim2);
+
+			var result = new Matrix<double> (matrix1.dim1, matrix1.dim2);
+			for (int i = 0; i < matrix1.dim1; i++)
+				result.SetRow(i, matrix1.GetRow (i).MinusWithReturn (matrix2.GetRow (i)));
+
+			return result;
+		}
+
 		/// <summary>Compute the scalar product of a matrix row with the difference vector of two other matrix rows</summary>
 		/// <param name="matrix1">the first matrix</param>
 		/// <param name="i">the first row ID</param>
@@ -309,6 +323,15 @@ namespace MyMediaLite.DataType
 		static public float Max(this Matrix<float> m)
 		{
 			return m.data.Max();
+		}
+
+		static public double EuclideanNorm (Matrix<double> matrix)
+		{
+			var values = new double[matrix.dim1];
+			for (int i = 0; i < matrix.dim1; i++)
+				values[i] = VectorExtensions.EuclideanNorm (matrix.GetRow (i));
+			
+			return VectorExtensions.EuclideanNorm (values);
 		}
 	}
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2012 Zeno Gantner
+﻿// Copyright (C) 2015 Zeno Gantner
 //
 // This file is part of MyMediaLite.
 //
@@ -17,11 +17,12 @@
 //
 using System;
 using System.Collections.Generic;
-using CsvHelper.Configuration;
+using System.Runtime.Serialization;
 
-namespace Baselines.Algorithms
+namespace MyMediaLite.Data
 {
-	public class Checkin
+	[Serializable]
+	public class Checkin : ISerializable
 	{
 		public int User { get; set; }
 		public int Item { get; set; }
@@ -29,57 +30,43 @@ namespace Baselines.Algorithms
 		public DateTime Date { get; set; }
 		public IList<int> CandidatesChecked { get; set; }
 		public IList<int> CandidatesAll { get; set; }
+
 		public Checkin ()
 		{
+		}
+
+		public Checkin (SerializationInfo info, StreamingContext context)
+		{
+			User = (int)info.GetValue ("User", typeof (int));
+			Item = (int)info.GetValue ("Item", typeof (int));
+			Coordinates = (Coordinate)info.GetValue ("Coordinates", typeof (Coordinate));
+			Date = (DateTime)info.GetValue ("Date", typeof (DateTime));
+			CandidatesChecked = (List<int>)info.GetValue ("CandidatesChecked", typeof (List<int>));
+			CandidatesAll = (List<int>)info.GetValue ("CandidatesAll", typeof (List<int>));
 		}
 
 		public Checkin (int user, int item, float lat, float lng, DateTime date, IList<int> candidates_checked, IList<int> candidates_all)
 		{
 			User = user;
 			Item = item;
-			Coordinates = new Coordinate(lat, lng);
+			Coordinates = new Coordinate (lat, lng);
 			Date = date;
 			CandidatesChecked = candidates_checked;
 			CandidatesAll = candidates_all;
 		}
-	}
 
-	public class Coordinate
-	{
-		public float Latitude { get; set; }
-		public float Longitude { get; set; }
-
-		public Coordinate ()
+		public void GetObjectData (SerializationInfo info, StreamingContext context)
 		{
-		}
-
-		public Coordinate (float lat, float lng)
-		{
-			Latitude = lat;
-			Longitude = lng;
+			info.AddValue ("User", User);
+			info.AddValue ("Item", Item);
+			info.AddValue ("Coordinates", Coordinates);
+			info.AddValue ("Date", Date);
+			info.AddValue ("CandidatesChecked", CandidatesChecked);
+			info.AddValue ("CandidatesAll", CandidatesAll);
 		}
 	}
 
-	public sealed class CheckinMap : CsvClassMap<Checkin>
-	{
-		public CheckinMap ()
-		{
-			Map(m => m.User).Name("user");
-			Map(m => m.Item).Name("venue");
-			References<CoordinateMap> (m => m.Coordinates);
-			Map (m => m.Date).Name ("time");
-			Map (m => m.CandidatesChecked).Name ("cand_checked").TypeConverter(new Helper.EnumarableConverter());
-			Map (m => m.CandidatesAll).Name ("cand_all").TypeConverter (new Helper.EnumarableConverter ());
-		}
-	}
 
-	public sealed class CoordinateMap : CsvClassMap<Coordinate>
-	{
-		public CoordinateMap ()
-		{
-			Map (m => m.Latitude).Index(1);
-			Map (m => m.Longitude).Index(0);
-		}
-	}
+
 
 }
