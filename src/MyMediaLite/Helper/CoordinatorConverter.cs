@@ -24,8 +24,8 @@ namespace MyMediaLite.Helper
 	{
 		public CoordinateMap ()
 		{
-			Map (m => m.Latitude).Index (1);
-			Map (m => m.Longitude).Index (0);
+			Map (m => m.Latitude).Index (3);
+			Map (m => m.Longitude).Index (2);
 		}
 	}
 }
