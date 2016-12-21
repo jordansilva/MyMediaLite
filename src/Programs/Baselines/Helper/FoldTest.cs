@@ -16,12 +16,34 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using MyMediaLite.Data;
+
 namespace Baselines.Helper
 {
-	public class FoldTest
+	[Serializable()]
+	public class FoldTest : ISerializable
 	{
+		public IList<Checkin> Training { get; set; } 
+		public IList<Checkin> Validation { get; set; }
+		public IList<Checkin> Test { get; set; }
+
 		public FoldTest ()
 		{
+		}
+
+		public FoldTest (SerializationInfo info, StreamingContext context) {
+			Training = (IList<Checkin>)info.GetValue ("Training", typeof (IList<Checkin>));
+			Validation = (IList<Checkin>)info.GetValue ("Validation", typeof (IList<Checkin>));
+			Test = (IList<Checkin>)info.GetValue ("Test", typeof (IList<Checkin>));
+		}
+
+		public void GetObjectData (SerializationInfo info, StreamingContext context)
+		{
+			info.AddValue ("Training", Training);
+			info.AddValue ("Validation", Validation);
+			info.AddValue ("Test", Test);
 		}
 	}
 }

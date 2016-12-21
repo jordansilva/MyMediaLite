@@ -29,7 +29,7 @@ namespace MyMediaLite.Data
 		{
 		}
 
-		public POI (int id, float lat, float lng)
+		public POI (int id, double lat, double lng)
 		{
 			Id = id;
 			Coordinates = new Coordinate (lat, lng);
@@ -49,8 +49,8 @@ namespace MyMediaLite.Data
 	{
 		public POICoordinateMap ()
 		{
-			Map (m => m.Latitude).Index (0);
-			Map (m => m.Longitude).Index (1);
+			Map (m => m.Latitude).Index (1);
+			Map (m => m.Longitude).Index (2);
 		}
 	}
 }

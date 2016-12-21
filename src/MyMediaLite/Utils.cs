@@ -27,6 +27,8 @@ namespace MyMediaLite
 	/// <summary>Class containing utility functions</summary>
 	public static class Utils
 	{
+		static Random _random = Random.GetInstance ();
+
 		/// <summary>Memoize a function</summary>
 		/// <param name="f">The function to memoize</param>
 		/// <returns>a version of the function that remembers past function results</returns>
@@ -60,6 +62,31 @@ namespace MyMediaLite
 				T tmp = list[i];
 				list[i] = list[r];
 				list[r] = tmp;
+			}
+		}
+
+		static public void ShuffleFisherYates<T> (this IList<T> array)
+		{
+			int n = array.Count;
+			for (int i = 0; i < n; i++) {
+				// NextDouble returns a random number between 0 and 1.
+				// ... It is equivalent to Math.random() in Java.
+				int r = i + (int)(_random.NextDouble () * (n - i));
+				T t = array [r];
+				array [r] = array [i];
+				array [i] = t;
+			}
+		}
+
+		static public void AsRandom<T> (this IList<T> array)
+		{
+			int n = array.Count;        // The number of items left to shuffle (loop invariant).
+			while (n > 1) {
+				int k = _random.Next(n);  // 0 <= k < n.
+				n--;                     // n is now the last pertinent index;
+				T temp = array [n];     // swap array[n] with array[k] (does nothing if k == n).
+				array [n] = array [k];
+				array [k] = temp;
 			}
 		}
 

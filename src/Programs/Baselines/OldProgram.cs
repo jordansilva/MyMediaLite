@@ -20,12 +20,12 @@ using Baselines.Algorithms;
 using System.Linq;
 using MyMediaLite;
 using Baselines.Service;
-using System.Collections.Generic;
+using MyMediaLite.Data;
 
 namespace Baselines
 {
 
-	class Program
+	class OldProgram
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
@@ -42,9 +42,9 @@ namespace Baselines
 
 		BaselineService mService;
 
-		public static void Main (string [] args)
+		static void OldMain (string [] args)
 		{
-			var program = new Program ();
+			var program = new OldProgram ();
 			program.mFold = "fold_1";
 			program.mTraining = string.Format ("{0}/{1}/train_all.txt", DATASET_FOLDER, program.mFold);
 			program.mValidation = string.Format ("{0}/{1}/validation.txt", DATASET_FOLDER, program.mFold);
@@ -195,33 +195,6 @@ namespace Baselines
 			Console.WriteLine ("Predicting {0} items: {1} seconds", result.Items.Count (), t.TotalSeconds);
 
 			return result;
-		}
-
-		void TestResults ()
-		{
-			IBaseline algorithm1 = CreateModel (10, 0.04f, 0.01f);
-			QueryResult result1 = EvaluationModel (algorithm1);
-			mService.SaveRank ("bprmf-n10-l004-r001.txt", result1);
-		}
-
-		void TestSameResult ()
-		{
-			IBaseline algorithm1 = CreateModel (10, 0.04f, 0.01f);
-			QueryResult result1 = EvaluationModel (algorithm1);
-			double mrr1 = result1.GetMetric ("MRR");
-
-			IBaseline algorithm2 = CreateModel (10, 0.04f, 0.01f);
-			QueryResult result2 = EvaluationModel (algorithm2);
-			double mrr2 = result2.GetMetric ("MRR");
-
-			if (mrr1.CompareTo (mrr2) == 0) {
-				Console.WriteLine ("Test same result: OK");
-				mService.SaveRank ("bprmf-n10-l004-r001.txt", result1);
-			} else {
-				Console.WriteLine ("Test Same Result invalid!");
-				Console.WriteLine ("MRR: {0}, {1}", mrr1, mrr2);
-				Environment.Exit (0);
-			}
 		}
 
 	}

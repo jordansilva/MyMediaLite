@@ -45,18 +45,18 @@
     <Reference Include="C5">
       <HintPath>..\packages\C5.2.4.5947.17249\lib\net40\C5.dll</HintPath>
     </Reference>
-    <Reference Include="MathNet.Numerics">
-      <HintPath>..\packages\MathNet.Numerics.2.6.1\lib\net40\MathNet.Numerics.dll</HintPath>
-    </Reference>
-    <Reference Include="MathNet.Numerics.IO">
-      <HintPath>..\packages\MathNet.Numerics.2.6.1\lib\net40\MathNet.Numerics.IO.dll</HintPath>
-    </Reference>
     <Reference Include="CsvHelper">
       <HintPath>..\packages\CsvHelper.2.16.3.0\lib\net40\CsvHelper.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="Alglib2">
       <HintPath>..\packages\alglib2.dll.3.10.3\lib\net40\Alglib2.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics">
+      <HintPath>..\packages\MathNet.Numerics.3.13.1\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics.Data.Text">
+      <HintPath>..\packages\MathNet.Numerics.Data.Text.3.2.0\lib\net40\MathNet.Numerics.Data.Text.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -269,7 +269,7 @@
     <Compile Include="Data\QueryResult.cs" />
     <Compile Include="Data\POI.cs" />
     <Compile Include="Helper\CheckinMap.cs" />
-    <Compile Include="Helper\CoordinateMap.cs" />
+    <Compile Include="Helper\CoordinatorConverter.cs" />
     <Compile Include="RatingPrediction\RankGeoFM.cs" />
     <Compile Include="Helper\DistanceHelper.cs" />
     <Compile Include="RatingPrediction\RankGeoFMBackup.cs" />

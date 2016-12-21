@@ -83,8 +83,11 @@ namespace MyMediaLite.IO
 					continue;
 
 				int start1 = line.IndexOf ("\"[", StringComparison.InvariantCulture);
-				int end1 = line.IndexOf ("]\"", StringComparison.InvariantCulture) + 3;
-				string[] tokens = line.Remove(start1, end1-start1).Split(Constants.SPLIT_CHARS);
+				int end1 = line.IndexOf ("]\"", StringComparison.InvariantCulture);
+				if (start1 != -1 && end1 != -1)
+					line = line.Remove (start1, (end1 + 3) - start1);
+				
+				string[] tokens = line.Split(Constants.SPLIT_CHARS);
 
 				if (test_rating_format == TestRatingFileFormat.WITH_RATINGS && tokens.Length < 4)
 					throw new FormatException("Expected at least 4 columns: " + line);
@@ -131,7 +134,11 @@ namespace MyMediaLite.IO
 					var offset = TimeZone.CurrentTimeZone.GetUtcOffset (time);
 					ratings.Add (user_id, item_id, rating, time - offset);
 				} else {
-					ratings.Add (user_id, item_id, rating, DateTime.Parse (date_string, CultureInfo.InvariantCulture));
+					DateTime time;
+					if (!DateTime.TryParse(date_string, out time))
+						time = DateTime.Now;
+					
+					ratings.Add (user_id, item_id, rating, time);
 				}
 
 				if (ratings.Count % 200000 == 199999)

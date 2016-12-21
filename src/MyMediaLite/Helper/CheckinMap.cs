@@ -27,7 +27,7 @@ namespace MyMediaLite.Helper
 		{
 			Map (m => m.User).Name ("user");
 			Map (m => m.Item).Name ("venue");
-			References<CoordinateMap> (m => m.Coordinates);
+			Map (m => m.Coordinates).Name ("point").TypeConverter(new Helper.CoordinatorConverter());
 			Map (m => m.Date).Name ("time");
 			Map (m => m.CandidatesChecked).Name ("cand_checked").TypeConverter (new Helper.EnumarableConverter ());
 			Map (m => m.CandidatesAll).Name ("cand_all").TypeConverter (new Helper.EnumarableConverter ());

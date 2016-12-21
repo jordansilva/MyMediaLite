@@ -16,6 +16,7 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace MyMediaLite.DataType
 {
@@ -26,7 +27,7 @@ namespace MyMediaLite.DataType
 	/// Access is internally done by binary search.
 	/// </remarks>
 	/// <typeparam name="T">the matrix element type, must have a default constructor/value</typeparam>
-	public class SparseMatrix<T> : IMatrix<T> where T : new()
+	public class SparseMatrix<T> : ISerializable, IMatrix<T> where T : new()
 	{
 		/// <summary>List of lists that stores the values of the entries</summary>
 		protected internal List<List<T>> value_list = new List<List<T>> ();
@@ -167,6 +168,15 @@ namespace MyMediaLite.DataType
 		}
 
 		///
+		public SparseMatrix (SerializationInfo info, StreamingContext context)
+		{
+			value_list = (List<List<T>>)info.GetValue ("data", typeof (List<List<T>>));
+			index_list = (List<List<int>>)info.GetValue ("dim1", typeof (List<List<int>>));
+			NumberOfColumns = (int)info.GetValue ("NumberOfColumns", typeof (int));
+		}
+
+
+		///
 		public void Resize (int num_rows, int num_cols)
 		{
 			// if necessary, grow rows
@@ -211,6 +221,13 @@ namespace MyMediaLite.DataType
 			foreach (Tuple<int, int> p in NonEmptyEntryIDs)
 				transpose [p.Item2, p.Item1] = this [p.Item1, p.Item2];
 			return transpose;
+		}
+
+		public void GetObjectData (SerializationInfo info, StreamingContext context)
+		{
+			info.AddValue ("index_list", index_list);
+			info.AddValue ("value_list", value_list);
+			info.AddValue ("NumberOfColumns", NumberOfColumns);
 		}
 	}
 }

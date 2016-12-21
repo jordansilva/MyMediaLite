@@ -16,35 +16,28 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
-using Baselines.Algorithms;
 using System.Linq;
 using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
 using MyMediaLite;
+using MyMediaLite.Data;
 
 namespace Baselines.Commands
 {
 
-	public class BPRMFCommand : Command
+	public class UserKNNCommand : Command
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
-		private static float [] LEARN_RATE = { 0.001f, 0.005f, 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.1f };
-		private static uint [] LATENT_FACTORS = { 5, 10, 20, 30, 50, 100, 500, 1000 };
-		private static float [] REGULARIZATION = { 0.0025f, 0.01f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.1f };
+		private static uint [] K_PARAMETERS = { 5, 10, 20, 30, 50, 80, 100, 200, 500, 1000 };
 
-		public BPRMFCommand (string training, string test) : base (training, test, typeof (BPRMF))
+		public UserKNNCommand (string training, string test) : base (training, test, typeof (UserKNN))
 		{
-			((BPRMF)Recommender).BiasReg = 0;
-			((BPRMF)Recommender).NumFactors = 10;
-			((BPRMF)Recommender).RegU = 0.0025f;
-			((BPRMF)Recommender).RegI = 0.0025f;
-			((BPRMF)Recommender).RegJ = 0.00025f;
-			((BPRMF)Recommender).NumIter = 25;
-			((BPRMF)Recommender).LearnRate = 0.05f;
-			((BPRMF)Recommender).UniformUserSampling = true;
-			((BPRMF)Recommender).WithReplacement = false;
-			((BPRMF)Recommender).UpdateJ = true;
+			((UserKNN)Recommender).K = 80; //default
+			((UserKNN)Recommender).Correlation = MyMediaLite.Correlation.BinaryCorrelationType.Cosine;
+			((UserKNN)Recommender).Weighted = false;
+			((UserKNN)Recommender).Alpha = 0.5f;
+			((UserKNN)Recommender).Q = 1;
 		}
 
 		public override void Tunning ()
@@ -55,90 +48,37 @@ namespace Baselines.Commands
 			if (Test == null || Test.Count == 0)
 				throw new Exception ("Test data can not be null");
 
-			//log.Info ("Tunning Regularization parameter");
-			//TunningRegularization ();
-
-			//log.Info ("Tunning Latent Factors parameter");
-			//TunningLatentFactors ();
-
-			LATENT_FACTORS = new uint[] { 50 };
-			REGULARIZATION = new float[] { 0.05f, 0.1f, 0.04f };
-			log.Info ("Tunning Learning Rate parameter");
-			TunningLearningRate ();
+			log.Info ("Tunning K parameter");
+			TunningK ();
 		}
 
-		void TunningRegularization ()
-		{
-			var num_factors = ((BPRMF)Recommender).NumFactors;
-			var learnrate = ((BPRMF)Recommender).LearnRate;
-
-			var mrr_tunning = new List<Tuple<float, double>> ();
-
-			foreach (var reg in REGULARIZATION) {
-				QueryResult result = Train (num_factors, learnrate, reg);
-				double mrr = result.GetMetric ("MRR");
-				Log (num_factors, reg, learnrate, mrr);
-				mrr_tunning.Add (Tuple.Create (reg, mrr));
-			}
-
-			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
-			REGULARIZATION = mrr_tunning.Select (x => x.Item1).Distinct().Take (3).ToArray ();
-			log.Debug (string.Format ("REGULARIZATION was changed to: {0}", string.Join (",", REGULARIZATION)));
-		}
-
-		void TunningLatentFactors ()
+		void TunningK ()
 		{
 			var mrr_tunning = new List<Tuple<uint, double>> ();
-			var learnrate = ((BPRMF)Recommender).LearnRate;
 
-			foreach (var reg in REGULARIZATION) {
-				foreach (var num_factors in LATENT_FACTORS) {
-					QueryResult result = Train (num_factors, learnrate, reg);
-					double mrr = result.GetMetric ("MRR");
-					Log (num_factors, reg, learnrate, mrr);
-					mrr_tunning.Add (Tuple.Create (num_factors, mrr));
-				}
+			foreach (var k in K_PARAMETERS) {
+				QueryResult result = Train (k);
+				double mrr = result.GetMetric ("MRR");
+				Log (k, mrr);
+				mrr_tunning.Add (Tuple.Create (k, mrr));
 			}
 
 			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
-			LATENT_FACTORS = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
-			log.Debug (string.Format ("LATENT FACTORS was changed to: {0}", string.Join (",", LATENT_FACTORS)));
+			K_PARAMETERS = mrr_tunning.Select (x => x.Item1).Distinct().Take (3).ToArray ();
+			log.Debug (string.Format ("Bests K parameters: {0}", string.Join (",", K_PARAMETERS)));
 		}
 
-		void TunningLearningRate ()
-		{
-			var mrr_tunning = new List<Tuple<float, double>> ();
-
-			foreach (var reg in REGULARIZATION) {
-				foreach (var num_factors in LATENT_FACTORS) {
-					foreach (var learnrate in LEARN_RATE) {
-						QueryResult result = Train (num_factors, learnrate, reg);
-						double mrr = result.GetMetric ("MRR");
-						Log (num_factors, reg, learnrate, mrr);
-						mrr_tunning.Add (Tuple.Create (learnrate, mrr));
-					}
-				}
-			}
-
-			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
-			LEARN_RATE = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
-			log.Debug (string.Format ("LEARN RATE was changed to: {0}", string.Join (",", LEARN_RATE)));
-		}
-
-		QueryResult Train (uint num_factors, float learn_rate, float regularization)
+		QueryResult Train (uint k, float alpha = 0.5f, bool weighted = false)
 		{
 			bool evaluate = true;
 			QueryResult result = null;
 			while (evaluate) {
 				try {
-					CreateModel (typeof (BPRMF));
-					((BPRMF)Recommender).Feedback = Feedback;
-					((BPRMF)Recommender).NumIter = 25;
-					((BPRMF)Recommender).NumFactors = num_factors;
-					((BPRMF)Recommender).LearnRate = learn_rate;
-					((BPRMF)Recommender).RegI = regularization;
-					((BPRMF)Recommender).RegU = regularization;
-					((BPRMF)Recommender).RegJ = regularization * 0.1f;
+					CreateModel (typeof (UserKNN));
+					((UserKNN)Recommender).Feedback = Feedback;
+					((UserKNN)Recommender).K = k;
+					((UserKNN)Recommender).Alpha = alpha;
+					((UserKNN)Recommender).Weighted = weighted;
 
 					TimeSpan t = Wrap.MeasureTime (delegate () {
 						Train ();
@@ -156,10 +96,9 @@ namespace Baselines.Commands
 			return result;
 		}
 
-		void Log (uint num_factors, float regularization, float learn_rate, double metric)
+		void Log (uint k, double metric)
 		{
-			log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t-\t\tMRR = {3}", num_factors,
-									 learn_rate, regularization, metric));
+			log.Info (string.Format ("k={0}\t\t-\t\tMRR = {1}", k, metric));
 		}
 
 		public override void Evaluate (string filename)

@@ -37,16 +37,35 @@
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System.Core" />
+    <Reference Include="log4net">
+      <HintPath>..\..\packages\log4net.2.0.5\lib\net45-full\log4net.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics">
+      <HintPath>..\..\packages\MathNet.Numerics.3.13.1\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Algorithms\RunBPRMF.cs" />
-    <Compile Include="Algorithms\Checkin.cs" />
-    <Compile Include="Helper\EnumarableConverter.cs" />
-    <Compile Include="Helper\Utils.cs" />
     <Compile Include="Algorithms\IBaseline.cs" />
-    <Compile Include="Algorithms\QueryResult.cs" />
+    <Compile Include="Service\BaselineService.cs" />
+    <Compile Include="Algorithms\RunWeightedBPRMF.cs" />
+    <Compile Include="Commands\RankGeoFMCommand.cs" />
+    <Compile Include="Commands\WBPRMFCommand.cs" />
+    <Compile Include="Commands\Command.cs" />
+    <Compile Include="Commands\WRMFCommand.cs" />
+    <Compile Include="OldProgram.cs" />
+    <Compile Include="..\..\..\lib\Options.cs">
+      <Link>Helper\Options.cs</Link>
+    </Compile>
+    <Compile Include="Commands\BPRMFCommand.cs" />
+    <Compile Include="Commands\UserKNNCommand.cs" />
+    <Compile Include="Commands\ItemKNNCommand.cs" />
+    <Compile Include="Helper\MappingFoldHelper.cs" />
+    <Compile Include="Helper\FoldTest.cs" />
+    <Compile Include="Commands\RankGeoFM2Command.cs" />
+    <Compile Include="Commands\MostPopularCommand.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\MyMediaLite\MyMediaLite.csproj">
@@ -57,9 +76,12 @@
   <ItemGroup>
     <Folder Include="Algorithms\" />
     <Folder Include="Helper\" />
+    <Folder Include="Service\" />
+    <Folder Include="Commands\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

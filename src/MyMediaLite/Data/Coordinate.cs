@@ -23,8 +23,8 @@ namespace MyMediaLite.Data
 	[Serializable]
 	public class Coordinate : ISerializable
 	{
-		public float Latitude { get; set; }
-		public float Longitude { get; set; }
+		public double Latitude { get; set; }
+		public double Longitude { get; set; }
 
 		public Coordinate ()
 		{
@@ -32,12 +32,12 @@ namespace MyMediaLite.Data
 
 		public Coordinate (SerializationInfo info, StreamingContext context)
 		{
-			Latitude = (float)info.GetValue ("Latitude", typeof (float));
-			Longitude = (float)info.GetValue ("Longitude", typeof (float));
+			Latitude = (double)info.GetValue ("Latitude", typeof (double));
+			Longitude = (double)info.GetValue ("Longitude", typeof (double));
 		}
 
 
-		public Coordinate (float lat, float lng)
+		public Coordinate (double lat, double lng)
 		{
 			Latitude = lat;
 			Longitude = lng;
@@ -47,6 +47,11 @@ namespace MyMediaLite.Data
 		{
 			info.AddValue ("Latitude", Latitude);
 			info.AddValue ("Longitude", Longitude);
+		}
+
+		public override string ToString ()
+		{
+			return string.Format ("[{0},{1}]", Convert.ToString(Longitude), Convert.ToString(Latitude));
 		}
 	}
 }

@@ -16,11 +16,11 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
-using Baselines.Algorithms;
 using System.Linq;
 using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
 using MyMediaLite;
+using MyMediaLite.Data;
 
 namespace Baselines.Commands
 {
@@ -58,11 +58,10 @@ namespace Baselines.Commands
 			//log.Info ("Tunning Regularization parameter");
 			//TunningRegularization ();
 
-			//log.Info ("Tunning Latent Factors parameter");
-			//TunningLatentFactors ();
+			REGULARIZATION = new float[] { 0.01f, 0.03f, 0.0025f };
+			log.Info ("Tunning Latent Factors parameter");
+			TunningLatentFactors ();
 
-			LATENT_FACTORS = new uint[] { 50 };
-			REGULARIZATION = new float[] { 0.05f, 0.1f, 0.04f };
 			log.Info ("Tunning Learning Rate parameter");
 			TunningLearningRate ();
 		}
@@ -82,7 +81,7 @@ namespace Baselines.Commands
 			}
 
 			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
-			REGULARIZATION = mrr_tunning.Select (x => x.Item1).Distinct().Take (3).ToArray ();
+			REGULARIZATION = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
 			log.Debug (string.Format ("REGULARIZATION was changed to: {0}", string.Join (",", REGULARIZATION)));
 		}
 
@@ -125,6 +124,8 @@ namespace Baselines.Commands
 			log.Debug (string.Format ("LEARN RATE was changed to: {0}", string.Join (",", LEARN_RATE)));
 		}
 
+		double best_mrr = 0.0;
+
 		QueryResult Train (uint num_factors, float learn_rate, float regularization)
 		{
 			bool evaluate = true;
@@ -146,6 +147,15 @@ namespace Baselines.Commands
 					});
 
 					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
+
+					double mrr = result.GetMetric ("MRR");
+					if (mrr >= best_mrr) {
+						best_mrr = mrr;
+						string filename = string.Format ("BPRMF-n{0}-l{1}-r{2}", num_factors, learn_rate, regularization);
+						SaveModel (string.Format ("{0}.model", filename));
+						MyMediaLite.Helper.Utils.SaveRank (filename, result);
+					}
+
 					evaluate = false;
 				} catch (Exception ex) {
 					Console.WriteLine (ex.Message);

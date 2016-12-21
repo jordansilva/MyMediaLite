@@ -16,204 +16,158 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
-using Baselines.Algorithms;
 using System.Linq;
-using MyMediaLite;
-using Baselines.Service;
+using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
+using MyMediaLite;
+using MyMediaLite.Data;
 
-namespace Baselines
+namespace Baselines.Commands
 {
 
-	class Program
+	public class WBPRMFCommand : Command
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
-		private const string MODEL_FOLDER = "/Volumes/Tyr/Projects/UFMG/Baselines/MyMediaLite-3.11/bin/"; //model-100/
-		private const string DATASET_FOLDER = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/";
-		private static readonly float [] LEARN_RATE = { 0.001f, 0.005f, 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.1f };
-		private static readonly uint [] LATENT_FACTORS = { 5, 10, 20, 30, 50, 100, 500, 1000 };
-		private static readonly float [] REGULARIZATION = { 0.0025f, 0.01f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.1f };
-		private static readonly Type BASELINE_TYPE = typeof (RunWeightedBPRMF);
-		private string mFold;
-		private string mTraining;
-		private string mValidation;
-		//private string mTest;
+		private static float [] LEARN_RATE = { 0.001f, 0.005f, 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.1f };
+		private static uint [] LATENT_FACTORS = { 5, 10, 20, 30, 50, 100, 500, 1000 };
+		private static float [] REGULARIZATION = { 0.0025f, 0.01f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.1f };
 
-		BaselineService mService;
-
-		public static void Main (string [] args)
+		public WBPRMFCommand (string training, string test) : base (training, test, typeof (WeightedBPRMF))
 		{
-			var program = new Program ();
-			program.mFold = "fold_1";
-			program.mTraining = string.Format ("{0}/{1}/train_all.txt", DATASET_FOLDER, program.mFold);
-			program.mValidation = string.Format ("{0}/{1}/validation.txt", DATASET_FOLDER, program.mFold);
-			//program.mTest = String.Format ("{0}/{1}/test.txt", DATASET_FOLDER, program.mFold);
-			program.Run (args);
-
-#if DEBUG
-			Console.WriteLine ("Press enter to close...");
-			Console.ReadLine ();
-#endif
+			((WeightedBPRMF)Recommender).BiasReg = 0;
+			((WeightedBPRMF)Recommender).NumFactors = 10;
+			((WeightedBPRMF)Recommender).RegU = 0.0025f;
+			((WeightedBPRMF)Recommender).RegI = 0.0025f;
+			((WeightedBPRMF)Recommender).RegJ = 0.00025f;
+			((WeightedBPRMF)Recommender).NumIter = 25;
+			((WeightedBPRMF)Recommender).LearnRate = 0.05f;
+			((WeightedBPRMF)Recommender).UniformUserSampling = true;
+			((WeightedBPRMF)Recommender).WithReplacement = false;
+			((WeightedBPRMF)Recommender).UpdateJ = true;
 		}
 
-
-		void Run (string [] args)
+		public override void Tunning ()
 		{
-			log.Info ("Running baselines");
+			if (Feedback == null || Feedback.Count == 0)
+				throw new Exception ("Training data can not be null");
 
-			mService = new BaselineService (mTraining, mValidation);
+			if (Test == null || Test.Count == 0)
+				throw new Exception ("Test data can not be null");
 
-			//TestResults ();
-			//TestSameResult ();
-			//PerformingRegularization ();
-			//PerformingLatentFactors ();
-			PerformingLearningRate ();
+			log.Info ("Tunning Regularization parameter");
+			TunningRegularization ();
 
-			log.Info ("Process ending");
+			log.Info ("Tunning Latent Factors parameter");
+			TunningLatentFactors ();
+
+			log.Info ("Tunning Learning Rate parameter");
+			TunningLearningRate ();
 		}
 
-
-		void PerformingRegularization ()
+		void TunningRegularization ()
 		{
-			log.Info ("Tunning REGULARIZATION parameter");
-			log.Info ("10 latent features (default), 0.05 learning rate (default)");
+			var num_factors = ((WeightedBPRMF)Recommender).NumFactors;
+			var learnrate = ((WeightedBPRMF)Recommender).LearnRate;
+
+			var mrr_tunning = new List<Tuple<float, double>> ();
+
 			foreach (var reg in REGULARIZATION) {
-				IBaseline algorithm = CreateModel (10, 0.05f, reg);
-				QueryResult result = EvaluationModel (algorithm);
-				log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t - MRR={3}",
-									   10, 0.05f, reg, result.GetMetric ("MRR")));
+				QueryResult result = Train (num_factors, learnrate, reg);
+				double mrr = result.GetMetric ("MRR");
+				Log (num_factors, reg, learnrate, mrr);
+				mrr_tunning.Add (Tuple.Create (reg, mrr));
 			}
+
+			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
+			REGULARIZATION = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
+			log.Debug (string.Format ("REGULARIZATION was changed to: {0}", string.Join (",", REGULARIZATION)));
 		}
 
-		void PerformingLatentFactors ()
+		void TunningLatentFactors ()
 		{
-			//float [] best_regularization = { 0.0025f, 0.1f, 0.2f, 0.07f, 0.06f };
-			float [] best_regularization = { 0.07f, 0.06f };
+			var mrr_tunning = new List<Tuple<uint, double>> ();
+			var learnrate = ((WeightedBPRMF)Recommender).LearnRate;
 
-			log.Info ("Tunning LATENT FACTORS parameter");
-			foreach (var reg in best_regularization) {
-				foreach (var latent_factor in LATENT_FACTORS) {
-					IBaseline algorithm = CreateModel (latent_factor, 0.05f, reg);
-					QueryResult result = EvaluationModel (algorithm);
-					log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t - MRR={3}",
-											 latent_factor, 0.05f, reg, result.GetMetric ("MRR")));
+			foreach (var reg in REGULARIZATION) {
+				foreach (var num_factors in LATENT_FACTORS) {
+					QueryResult result = Train (num_factors, learnrate, reg);
+					double mrr = result.GetMetric ("MRR");
+					Log (num_factors, reg, learnrate, mrr);
+					mrr_tunning.Add (Tuple.Create (num_factors, mrr));
 				}
 			}
+
+			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
+			LATENT_FACTORS = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
+			log.Debug (string.Format ("LATENT FACTORS was changed to: {0}", string.Join (",", LATENT_FACTORS)));
 		}
 
-		void PerformingLearningRate ()
+		void TunningLearningRate ()
 		{
-			//uint [] best_latent_factors = { 10, 50, 100, 500, 1000 };
-			//float [] best_regularization = { 0.1f, 0.2f, 0.07f, 0.06f };
+			var mrr_tunning = new List<Tuple<float, double>> ();
 
-			uint [] best_latent_factors = { 10, 50, 100, 500, 1000 };
-			float [] best_regularization = { 0.2f, 0.07f, 0.06f };
-
-			log.Info ("Tunning LEARNING RATE parameter");
-			foreach (var reg in best_regularization) {
-				foreach (var latent_factor in best_latent_factors) {
-					foreach (var learning_rate in LEARN_RATE) {
-						IBaseline algorithm = CreateModel (latent_factor, learning_rate, reg);
-						QueryResult result = EvaluationModel (algorithm);
-						log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t - MRR={3}",
-												 latent_factor, learning_rate, reg, result.GetMetric ("MRR")));
+			foreach (var reg in REGULARIZATION) {
+				foreach (var num_factors in LATENT_FACTORS) {
+					foreach (var learnrate in LEARN_RATE) {
+						QueryResult result = Train (num_factors, learnrate, reg);
+						double mrr = result.GetMetric ("MRR");
+						Log (num_factors, reg, learnrate, mrr);
+						mrr_tunning.Add (Tuple.Create (learnrate, mrr));
 					}
 				}
 			}
+
+			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
+			LEARN_RATE = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
+			log.Debug (string.Format ("LEARN RATE was changed to: {0}", string.Join (",", LEARN_RATE)));
 		}
 
-		IBaseline CreateModel (uint num_factors, float learn_rate, float regularization)
+		QueryResult Train (uint num_factors, float learn_rate, float regularization)
 		{
-			IBaseline algorithm = null;
-			bool running = true;
-			while (running) {
+			bool evaluate = true;
+			QueryResult result = null;
+			while (evaluate) {
 				try {
-					MyMediaLite.Random.Seed = 23;
-					algorithm = mService.CreateModel (BASELINE_TYPE);
-					algorithm.SetParameter ("NumFactors", num_factors);
-					algorithm.SetParameter ("NumIter", 25);
-					algorithm.SetParameter ("RegU", regularization);
-					algorithm.SetParameter ("RegI", regularization);
-					algorithm.SetParameter ("RegJ", regularization * 0.1f);
-					algorithm.SetParameter ("LearnRate", learn_rate);
+					CreateModel (typeof (WeightedBPRMF));
+					((WeightedBPRMF)Recommender).Feedback = Feedback;
+					((WeightedBPRMF)Recommender).NumIter = 25;
+					((WeightedBPRMF)Recommender).NumFactors = num_factors;
+					((WeightedBPRMF)Recommender).LearnRate = learn_rate;
+					((WeightedBPRMF)Recommender).RegI = regularization;
+					((WeightedBPRMF)Recommender).RegU = regularization;
+					((WeightedBPRMF)Recommender).RegJ = regularization*0.1f;
 
 					TimeSpan t = Wrap.MeasureTime (delegate () {
-						mService.TrainModel (algorithm, MyMediaLite.IO.ItemDataFileFormat.IGNORE_FIRST_LINE);
+						Train ();
+						result = Evaluate ();
 					});
 
-					Console.WriteLine ("Training model {0}: {1} seconds", algorithm.Name (), t.TotalSeconds);
-					Console.WriteLine ("Algorithm parameters: {0}\n\n", algorithm);
-					running = false;
+					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
+
+					string filename = string.Format ("WeightedBPRMF-n{0}-l{1}-r{2}", num_factors, learn_rate, regularization);
+					SaveModel (string.Format ("{0}.model", filename));
+					MyMediaLite.Helper.Utils.SaveRank (filename, result);
+
+					evaluate = false;
 				} catch (Exception ex) {
 					Console.WriteLine (ex.Message);
-					running = true;
+					evaluate = true;
 				}
 			}
-
-			return algorithm;
-		}
-
-		//IBaseline CreateModel (List<KeyValuePair<string, object>> parameters)
-		//{
-		//	MyMediaLite.Random.Seed = 23;
-		//	IBaseline algorithm = mService.CreateModel (BASELINE_TYPE);
-
-		//	foreach (var item in parameters)
-		//		algorithm.SetParameter (item.Key, item.Value);
-
-		//	TimeSpan t = Wrap.MeasureTime (delegate () {
-		//		mService.TrainModel (algorithm, MyMediaLite.IO.ItemDataFileFormat.IGNORE_FIRST_LINE);
-		//	});
-
-		//	Console.WriteLine ("Training model {0}: {1} seconds", algorithm.Name (), t.TotalSeconds);
-		//	Console.WriteLine ("Algorithm parameters: {0}\n\n", algorithm);
-
-		//	return algorithm;
-		//}
-
-		IBaseline LoadModel ()
-		{
-			string model = string.Format ("{0}/model-n100.test", MODEL_FOLDER);
-			return mService.LoadModel (BASELINE_TYPE, model);
-		}
-
-		QueryResult EvaluationModel (IBaseline algorithm)
-		{
-			QueryResult result = null;
-			TimeSpan t = Wrap.MeasureTime (delegate () { result = mService.EvaluationRank (algorithm); });
-
-			Console.WriteLine ("Predicting {0} items: {1} seconds", result.Items.Count (), t.TotalSeconds);
 
 			return result;
 		}
 
-		void TestResults ()
+		void Log (uint num_factors, float regularization, float learn_rate, double metric)
 		{
-			IBaseline algorithm1 = CreateModel (10, 0.04f, 0.01f);
-			QueryResult result1 = EvaluationModel (algorithm1);
-			mService.SaveRank ("bprmf-n10-l004-r001.txt", result1);
+			log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t-\t\tMRR = {3}", num_factors,
+									 learn_rate, regularization, metric));
 		}
 
-		void TestSameResult ()
+		public override void Evaluate (string filename)
 		{
-			IBaseline algorithm1 = CreateModel (10, 0.04f, 0.01f);
-			QueryResult result1 = EvaluationModel (algorithm1);
-			double mrr1 = result1.GetMetric ("MRR");
-
-			IBaseline algorithm2 = CreateModel (10, 0.04f, 0.01f);
-			QueryResult result2 = EvaluationModel (algorithm2);
-			double mrr2 = result2.GetMetric ("MRR");
-
-			if (mrr1.CompareTo (mrr2) == 0) {
-				Console.WriteLine ("Test same result: OK");
-				mService.SaveRank ("bprmf-n10-l004-r001.txt", result1);
-			} else {
-				Console.WriteLine ("Test Same Result invalid!");
-				Console.WriteLine ("MRR: {0}, {1}", mrr1, mrr2);
-				Environment.Exit (0);
-			}
+			throw new NotImplementedException ();
 		}
-
 	}
 }

@@ -15,17 +15,30 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
+using System;
 using CsvHelper.Configuration;
 using MyMediaLite.Data;
 
 namespace MyMediaLite.Helper
 {
-	public sealed class CoordinateMap : CsvClassMap<Coordinate>
+	public class CoordinatorConverter : CsvHelper.TypeConversion.EnumerableConverter
 	{
-		public CoordinateMap ()
+		public override bool CanConvertFrom (Type type)
 		{
-			Map (m => m.Latitude).Index (3);
-			Map (m => m.Longitude).Index (2);
+			return type == typeof (String) || type == typeof (string);
+		}
+
+		public override object ConvertFromString (CsvHelper.TypeConversion.TypeConverterOptions options, string text)
+		{
+			try {
+				string [] arrText = text.Replace ("[", "").Replace ("]", "").Split (',');
+				double longitude = double.Parse (arrText [0]);
+				double latitude = double.Parse (arrText [1]);
+				return new Coordinate (latitude, longitude);
+			} catch (Exception ex) {
+				Console.WriteLine (text);
+				throw ex;
+			}
 		}
 	}
 }

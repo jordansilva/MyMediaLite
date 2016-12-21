@@ -16,14 +16,12 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
-using Baselines.Algorithms;
-using System.Linq;
-using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
 using MyMediaLite;
 using MyMediaLite.RatingPrediction;
 using MyMediaLite.IO;
 using MyMediaLite.Data;
+using Mono.Options;
 
 namespace Baselines.Commands
 {
@@ -33,96 +31,167 @@ namespace Baselines.Commands
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
 		ITimedRatings FeedbackRatings;
+		IList<POI> Items;
 
-		public RankGeoFMCommand (string training, string test) : base (training, test, typeof (WeatherContextAwareItemRecommender))
+		public RankGeoFMCommand (string training, string test) : base(typeof(RankGeoFM))
 		{
+			path_training = training;
+			path_test = test;
+			Init ();
+		}
 
-			((WeatherContextAwareItemRecommender)Recommender).weather_aware = false;
-			((WeatherContextAwareItemRecommender)Recommender).max_iter = 7000;
-			((WeatherContextAwareItemRecommender)Recommender).evaluation_at = 20;
+		//protected override void CreateModel (Type baseline)
+		//{
+			//int user_count = FeedbackRatings.AllUsers.Count;
+			//int item_count = FeedbackRatings.AllItems.Count;
+			//int K = 300;
+			//int rangeSize = 10;
 
-			((WeatherContextAwareItemRecommender)Recommender).beta = 0;
+			//double [,] U1 = new double [user_count, K];
+			//double [,] U2 = new double [user_count, K];
+			//double [,] L1 = new double [item_count, K];
+			//double [,] L2 = new double [item_count, K];
+			//double [,] L3 = new double [item_count, K];
+			//double [,] F = new double [rangeSize, K];
+
+			//Dictionary<int, int> idMapperLocations = new Dictionary<int, int> ();
+			//Dictionary<int, int> idMapperUser = new Dictionary<int, int> ();
 
 
-			((BPRMF)Recommender).NumFactors = 10;
-			((BPRMF)Recommender).RegU = 0.0025f;
-			((BPRMF)Recommender).RegI = 0.0025f;
-			((BPRMF)Recommender).RegJ = 0.00025f;
-			((BPRMF)Recommender).NumIter = 25;
-			((BPRMF)Recommender).LearnRate = 0.05f;
-			((BPRMF)Recommender).UniformUserSampling = true;
-			((BPRMF)Recommender).WithReplacement = false;
-			((BPRMF)Recommender).UpdateJ = true;
+			//initMatrixNormal (FeedbackRatings.AllUsers, ref U1, ref idMapperUser, K);
+			//initMatrixNormal (FeedbackRatings.AllUsers, ref U2, ref idMapperUser, K);
+			//initMatrixNormal (FeedbackRatings.AllItems, ref L1, ref idMapperLocations, K);
+			//initMatrixNormal (FeedbackRatings.AllItems, ref L2, ref idMapperLocations, K);
+			//initMatrixNormal (FeedbackRatings.AllItems, ref L3, ref idMapperLocations, K);
+			//initMatrixNormal (rangeSize, ref F, K);
+
+			//Recommender = new WeatherContextAwareItemRecommender(U1, U2, L1, L2, L3, F, 
+			//                                                     idMapperLocations, 
+			//                                                     idMapperUser,
+			//                                                     0, null);
+			
+
+		//}
+
+		public override void SetupOptions (string [] args)
+		{
+			base.SetupOptions (args);
+			
+			string user_file = null;
+			string item_file = null;
+
+			var options = new OptionSet {
+				{ "user-file=",      v              => user_file        = v },
+				{ "item-file=",      v              => item_file      = v }};
+			options.Parse (args);
+
+			if (!string.IsNullOrEmpty (item_file)) {
+				Console.WriteLine ("Loading items data");
+				Items = MyMediaLite.Helper.Utils.ReadPOIs (item_file);
+			}
+
+		}
+
+		/// <summary>
+		/// Initialize a matrix with normal distributed values with mean = 0.0 std = 0.01
+		/// </summary>
+		/// <param name="ids">Identifiers.</param>
+		/// <param name="M">Matrix to initialize</param>
+		private static void initMatrixNormal (int size, ref double [,] M, int K)
+		{
+			MathNet.Numerics.Distributions.Normal normalDist = new MathNet.Numerics.Distributions.Normal (0.0, 0.01);
+			for (int i = 0; i < size; i++) {
+				for (int j = 0; j < K; j++) {
+					M [i, j] = normalDist.Sample ();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Initialize a matrix with normal distributed values with mean = 0.0 std = 0.01
+		/// </summary>
+		/// <param name="ids">Identifiers.</param>
+		/// <param name="M">Matrix to initialize</param>
+		private static void initMatrixNormal (IList<int> ids, ref double [,] M, ref Dictionary<int, int> mapper, int K)
+		{
+			MathNet.Numerics.Distributions.Normal normalDist = new MathNet.Numerics.Distributions.Normal (0.0, 0.01);
+			int i = 0;
+			foreach (int id in ids) {
+				for (int j = 0; j < K; j++) {
+					M [i, j] = normalDist.Sample ();
+					mapper [id] = i;
+				}
+				i++;
+			}
 		}
 
 		protected override void Init ()
 		{
 			if (!string.IsNullOrEmpty (path_training)) {
 				Console.WriteLine ("Loading training data");
-				FeedbackRatings = TimedRatingData.Read (path_training, new IdentityMapping (), new IdentityMapping (),
-				                                     TestRatingFileFormat.WITHOUT_RATINGS, true);	
+				FeedbackRatings = CustomTimedRatingData.Read (path_training, 
+				                                              new IdentityMapping (), 
+				                                              new IdentityMapping (),
+				                                              TestRatingFileFormat.WITHOUT_RATINGS, true);	
 			}
 
-			if (!string.IsNullOrEmpty (path_test)) {
-				Console.WriteLine ("Loading test data");
-				Test = LoadTest (path_test);
-			}
+			//if (!string.IsNullOrEmpty (path_test)) {
+			//	Console.WriteLine ("Loading test data");
+			//	Test = LoadTest (path_test);
+			//}
 		}
 
 		public override void Tunning ()
 		{
-			if (Feedback == null || Feedback.Count == 0)
-				throw new Exception ("Training data can not be null");
+			//if (FeedbackRatings == null || FeedbackRatings.Count == 0)
+			//	throw new Exception ("Training data can not be null");
 
-			if (Test == null || Test.Count == 0)
-				throw new Exception ("Test data can not be null");
+			//if (Test == null || Test.Count == 0)
+			//	throw new Exception ("Test data can not be null");
 
-			//log.Info ("Tunning Regularization parameter");
-			//TunningRegularization ();
+			((RankGeoFM)Recommender).Items = Items;
+			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
 
-			//log.Info ("Tunning Latent Factors parameter");
-			//TunningLatentFactors ();
-
-			//log.Info ("Tunning Learning Rate parameter");
-			//TunningLearningRate ();
+			TimeSpan t = Wrap.MeasureTime (delegate () {
+				Recommender.Train ();
+			});
+			Console.WriteLine ("Distance Matrix: {0} seconds", t.TotalSeconds);
 		}
 
-		QueryResult Train (uint num_factors, float learn_rate, float regularization)
-		{
-			bool evaluate = true;
-			QueryResult result = null;
-			while (evaluate) {
-				try {
-					CreateModel (typeof (BPRMF));
-					((BPRMF)Recommender).Feedback = Feedback;
-					((BPRMF)Recommender).NumIter = 25;
-					((BPRMF)Recommender).NumFactors = num_factors;
-					((BPRMF)Recommender).LearnRate = learn_rate;
-					((BPRMF)Recommender).RegI = regularization;
-					((BPRMF)Recommender).RegU = regularization;
-					((BPRMF)Recommender).RegJ = regularization * 0.1f;
+		//QueryResult Train (uint num_factors, float learn_rate, float regularization)
+		//{
+		//	bool evaluate = true;
+		//	QueryResult result = null;
+		//	while (evaluate) {
+		//		try {
+		//			CreateModel (typeof (WeatherContextAwareItemRecommender));
+		//			((WeatherContextAwareItemRecommender)Recommender).weather_aware = false;
+		//			((WeatherContextAwareItemRecommender)Recommender).max_iter = 7000;
+		//			((WeatherContextAwareItemRecommender)Recommender).rangeSize = 10;
+		//			((WeatherContextAwareItemRecommender)Recommender).evaluation_at = 20;
+		//			((WeatherContextAwareItemRecommender)Recommender).Ratings = FeedbackRatings;
+		//			((WeatherContextAwareItemRecommender)Recommender).Items = Items;
+		//			TimeSpan t = Wrap.MeasureTime (delegate () {
+		//				Train ();
+		//				result = Evaluate ();
+		//			});
 
-					TimeSpan t = Wrap.MeasureTime (delegate () {
-						Train ();
-						result = Evaluate ();
-					});
+		//			Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
+		//			evaluate = false;
+		//		} catch (Exception ex) {
+		//			Console.WriteLine (ex.Message);
+		//			evaluate = true;
+		//		}
+		//	}
 
-					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
-					evaluate = false;
-				} catch (Exception ex) {
-					Console.WriteLine (ex.Message);
-					evaluate = true;
-				}
-			}
+		//	return result;
+		//}
 
-			return result;
-		}
-
-		void Log (uint num_factors, float regularization, float learn_rate, double metric)
-		{
-			log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t-\t\tMRR = {3}", num_factors,
-									 learn_rate, regularization, metric));
-		}
+		//void Log (uint num_factors, float regularization, float learn_rate, double metric)
+		//{
+		//	log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t-\t\tMRR = {3}", num_factors,
+		//							 learn_rate, regularization, metric));
+		//}
 
 		public override void Evaluate (string filename)
 		{

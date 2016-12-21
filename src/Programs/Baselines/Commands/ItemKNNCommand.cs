@@ -16,28 +16,39 @@
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
-using Baselines.Algorithms;
 using System.Linq;
 using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
 using MyMediaLite;
+using MyMediaLite.Data;
+using MyMediaLite.IO;
+using System.IO;
 
 namespace Baselines.Commands
 {
 
-	public class UserKNNCommand : Command
+	public class ItemKNNCommand : Command
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
-		private static uint [] K_PARAMETERS = { 5, 10, 20, 30, 50, 80, 100, 200, 500, 1000 };
+		private static uint [] K_PARAMETERS = { 5, 500 };
 
-		public UserKNNCommand (string training, string test) : base (training, test, typeof (UserKNN))
+		public ItemKNNCommand (string training, string test) : base (training, test, typeof (ItemKNN))
 		{
-			((UserKNN)Recommender).K = 80; //default
-			((UserKNN)Recommender).Correlation = MyMediaLite.Correlation.BinaryCorrelationType.Cosine;
-			((UserKNN)Recommender).Weighted = false;
-			((UserKNN)Recommender).Alpha = 0.5f;
-			((UserKNN)Recommender).Q = 1;
+			((ItemKNN)Recommender).K = 80; //default
+			((ItemKNN)Recommender).Correlation = MyMediaLite.Correlation.BinaryCorrelationType.Cosine;
+			((ItemKNN)Recommender).Weighted = false;
+			((ItemKNN)Recommender).Alpha = 0.5f;
+			((ItemKNN)Recommender).Q = 1;
+		}
+
+		protected override IPosOnlyFeedback LoadPositiveFeedback (string path, ItemDataFileFormat file_format)
+		{
+			IPosOnlyFeedback feedback = ItemData.Read (path,
+													   new IdentityMapping (),
+													   new IdentityMapping (),
+													   file_format == ItemDataFileFormat.IGNORE_FIRST_LINE);
+			return feedback;
 		}
 
 		public override void Tunning ()
@@ -55,50 +66,85 @@ namespace Baselines.Commands
 		void TunningK ()
 		{
 			var mrr_tunning = new List<Tuple<uint, double>> ();
-
+			//uint k = 80;
 			foreach (var k in K_PARAMETERS) {
-				QueryResult result = Train (k);
-				double mrr = result.GetMetric ("MRR");
-				Log (k, mrr);
-				mrr_tunning.Add (Tuple.Create (k, mrr));
+				QueryResult [] result = Train (k);
+
+				//double mrr1 = result [0].GetMetric ("MRR");
+				//Log (k, mrr1, "Rank Checked");
+
+				double mrr2 = result [1].GetMetric ("MRR");
+				Log (k, mrr2, "Rank All");
+
+				//mrr_tunning.Add (Tuple.Create (k, mrr1));
+				mrr_tunning.Add (Tuple.Create (k, mrr2));
 			}
 
 			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
-			K_PARAMETERS = mrr_tunning.Select (x => x.Item1).Distinct().Take (3).ToArray ();
+			K_PARAMETERS = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
 			log.Debug (string.Format ("Bests K parameters: {0}", string.Join (",", K_PARAMETERS)));
 		}
 
-		QueryResult Train (uint k, float alpha = 0.5f, bool weighted = false)
+		QueryResult [] Train (uint k, float alpha = 0.5f, bool weighted = false)
 		{
-			bool evaluate = true;
-			QueryResult result = null;
-			while (evaluate) {
-				try {
-					CreateModel (typeof (UserKNN));
-					((UserKNN)Recommender).Feedback = Feedback;
-					((UserKNN)Recommender).K = k;
-					((UserKNN)Recommender).Alpha = alpha;
-					((UserKNN)Recommender).Weighted = weighted;
+			QueryResult [] result = new QueryResult [2];
+			string model_filename = string.Format ("ItemKNN-{0}.model", k);
+			TimeSpan t;
 
-					TimeSpan t = Wrap.MeasureTime (delegate () {
+			try {
+				if (File.Exists (model_filename)) {
+					CreateModel (typeof (ItemKNN));
+					((ItemKNN)Recommender).Feedback = Feedback;
+					LoadModel (model_filename);
+					log.Info (string.Format ("Training K={0}", k));
+					Console.WriteLine ("Model loaded!");
+
+				} else {
+					CreateModel (typeof (ItemKNN));
+					((ItemKNN)Recommender).Feedback = Feedback;
+					((ItemKNN)Recommender).K = k;
+					((ItemKNN)Recommender).Alpha = alpha;
+					((ItemKNN)Recommender).Weighted = weighted;
+
+					log.Info (string.Format ("Training K={0}", k));
+					t = Wrap.MeasureTime (delegate () {
 						Train ();
-						result = Evaluate ();
 					});
 
-					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
-					evaluate = false;
-				} catch (Exception ex) {
-					Console.WriteLine (ex.Message);
-					evaluate = true;
+					Console.WriteLine ("Training model: {0} seconds", t.TotalSeconds);
+
+					((ItemKNN)Recommender).SaveModel (string.Format ("ItemKNN-{0}.model", k));
 				}
+
+				t = Wrap.MeasureTime (delegate () {
+					//var eval = EvaluateItems ();
+					//Console.WriteLine ("MRR: {0}", eval ["MRR"]);
+					//Console.WriteLine ("prec@5: {0}", eval ["prec@5"]);
+					//Console.WriteLine ("prec@10: {0}", eval ["prec@10"]);
+					//Console.WriteLine ("prec@20: {0}", eval ["prec@20"]);
+					//Console.WriteLine ("prec@50: {0}", eval ["prec@50"]);
+					//Console.WriteLine ("prec@100: {0}", eval ["prec@100"]);
+					//Console.WriteLine ("prec@500: {0}", eval ["prec@500"]);
+
+					//result [0] = Evaluate (false);
+					result [1] = Evaluate ();
+				});
+				Console.WriteLine ("Evaluate model: {0} seconds", t.TotalSeconds);
+
+				string filename = string.Format ("ItemKNN-{0}-a{1}-w{2}", k, alpha, weighted);
+				MyMediaLite.Helper.Utils.SaveRank (filename, result[1]);
+
+			} catch (Exception ex) {
+				Console.WriteLine (string.Format ("Exception {0}:", ex.Message));
+				throw ex;
 			}
 
 			return result;
 		}
 
-		void Log (uint k, double metric)
+		void Log (uint k, double metric, string tag)
 		{
-			log.Info (string.Format ("k={0}\t\t-\t\tMRR = {1}", k, metric));
+			log.Info (string.Format ("[{2}] k={0}\t\t-\t\tMRR = {1}", k, metric, tag));
 		}
 
 		public override void Evaluate (string filename)

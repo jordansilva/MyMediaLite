@@ -25,15 +25,15 @@ using System.Reflection;
 
 namespace Baselines.Algorithms
 {
-	public class RunBPRMF : IBaseline
+	public class RunWeightedBPRMF : IBaseline
 	{
-		private const string ALGORITHM_NAME = "BPRMF";
-		public BPRMF Algorithm;
+		private const string ALGORITHM_NAME = "WeightedBPRMF";
+		public WeightedBPRMF Algorithm;
 
-		public RunBPRMF ()
+		public RunWeightedBPRMF ()
 		{
 			// num_factors=10 bias_reg=0 reg_u=0.0025 reg_i=0.0025 reg_j=0.00025 num_iter=30 learn_rate=0.05 uniform_user_sampling=True with_replacement=False update_j=True
-			Algorithm = new BPRMF ();
+			Algorithm = new WeightedBPRMF ();
 			Algorithm.BiasReg = 0;
 			Algorithm.NumFactors = 10;
 			Algorithm.RegU = 0.0025f;
@@ -49,15 +49,15 @@ namespace Baselines.Algorithms
 			//Algorithm.
 		}
 
-		public RunBPRMF (string model)
+		public RunWeightedBPRMF (string model)
 		{
-			Algorithm = new BPRMF ();
+			Algorithm = new WeightedBPRMF ();
 			Algorithm.LoadModel (model);
 		}
 
 		public void LoadModel (string filename)
 		{
-			Algorithm = new BPRMF ();
+			Algorithm = new WeightedBPRMF ();
 			Algorithm.LoadModel (filename);
 		}
 
@@ -77,7 +77,7 @@ namespace Baselines.Algorithms
 
 		public IList<Tuple<int, float>> Predict (int user, IList<int> items)
 		{
-			List<Tuple<int, float>> predictions = new List<Tuple<int, float>> ();
+			var predictions = new List<Tuple<int, float>> ();
 
 			foreach (int item in items) {
 				Tuple<int, float> rating = Predict (user, item);
@@ -94,7 +94,7 @@ namespace Baselines.Algorithms
 			return Tuple.Create (item, rating);
 		}
 
-		public void Train (String training, ItemDataFileFormat file_format)
+		public void Train (string training, ItemDataFileFormat file_format)
 		{
 			IPosOnlyFeedback feedback = ItemData.Read (training,
 													   new IdentityMapping (),

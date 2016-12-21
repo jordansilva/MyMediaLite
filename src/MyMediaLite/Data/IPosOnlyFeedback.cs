@@ -55,6 +55,7 @@ namespace MyMediaLite.Data
 		/// <summary>Get the transpose of the dataset (users and items exchanged)</summary>
 		/// <returns>the transpose of the dataset</returns>
 		IPosOnlyFeedback Transpose();
+
 	}
 }
 

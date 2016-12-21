@@ -15,6 +15,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with MyMediaLite.  If not, see <http://www.gnu.org/licenses/>.
 //
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,9 +25,11 @@ using MyMediaLite.IO;
 
 namespace MyMediaLite.Helper
 {
+	///
 	public class Utils
 	{
 
+		///
 		public static IList<POI> ReadPOIs (string filename, bool skip_header = true)
 		{
 			TextReader stream = File.OpenText (filename);
@@ -42,25 +45,49 @@ namespace MyMediaLite.Helper
 			return items;
 		}
 
-		public static IList<Checkin> ReadCheckins(string filename, bool skip_header = true)
+		///
+		public static IList<Checkin> ReadCheckins (string filename, bool skip_header = true)
 		{
 			string binary_filename = filename + ".bin.Baselines";
 			if (File.Exists (binary_filename))
 				return FileSerializer.Deserialize (binary_filename) as IList<Checkin>;
-			
+
 			TextReader stream = File.OpenText (filename);
 
 			var csvHelper = new CsvReader (stream);
 			csvHelper.Configuration.Delimiter = ",";
 			csvHelper.Configuration.HasHeaderRecord = skip_header;
 			csvHelper.Configuration.RegisterClassMap<CheckinMap> ();
-			csvHelper.Configuration.RegisterClassMap<CoordinateMap> ();
-			var checkins = csvHelper.GetRecords<Checkin> ().ToList();
+			var checkins = csvHelper.GetRecords<Checkin> ().ToList ();
 			stream.Close ();
 
 			return checkins;
 		}
 
+		///
+		public static void SaveCheckins (string filename, IList<Checkin> checkins)
+		{
+			string binary_filename = filename + ".bin.Baselines";
+			if (File.Exists (binary_filename))
+				File.Delete (binary_filename);
+
+			TextWriter writer = new StreamWriter (filename, true, System.Text.Encoding.UTF8);
+			writer.WriteLine ("user,venue,point,time,cand_checked,cand_all");
+
+			foreach (var item in checkins) {
+				writer.WriteLine ("{0},{1},\"{2}\",{3},\"[{4}]\",\"[{5}]\"", 
+				                  item.User,
+				                  item.Item,
+				                  item.Coordinates,
+				                  item.Date.ToUniversalTime().ToString ("O"),
+				                  string.Join(",", item.CandidatesChecked),
+				                  string.Join (",", item.CandidatesAll));
+			}
+
+			writer.Close ();
+		}
+
+		///
 		public static void CreateFile (string filename)
 		{
 			string path = Path.GetDirectoryName (filename);
@@ -70,11 +97,12 @@ namespace MyMediaLite.Helper
 
 			if (!Directory.Exists (path))
 				Directory.CreateDirectory (path);
-			
+
 			FileStream stream = File.Create (filename);
 			stream.Close ();
 		}
 
+		///
 		public static void SaveRank (string filename, QueryResult result)
 		{
 			//Saving results
@@ -85,7 +113,7 @@ namespace MyMediaLite.Helper
 			foreach (var query in result.Items) {
 				int pos = 1;
 				foreach (var item in query.Rank) {
-					string line = string.Format ("Q{0}\t0\t{1}\t{2}\t{3}\t{4}", query.Id, item.Item1, pos, item.Item2, query.Description);
+					string line = string.Format ("Q{0}\t0\t{1}\t{2}\t{3}\t{4}", query.Id, item.Item1, pos, item.Item2.ToString ("R"), query.Description);
 					writer.WriteLine (line);
 					pos++;
 				}
@@ -104,5 +132,7 @@ namespace MyMediaLite.Helper
 			}
 			writer.Close ();
 		}
+
+
 	}
 }

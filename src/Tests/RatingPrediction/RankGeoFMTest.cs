@@ -17,44 +17,27 @@
 
 using System;
 using NUnit.Framework;
-using MyMediaLite.Data;
 using MyMediaLite.RatingPrediction;
+using MyMediaLite.Helper;
 
 namespace Tests.RatingPrediction
 {
 	[TestFixture()]
-	public class BiPolarSlopeOneTest
+	public class RankGeoFMTest
 	{
-		[Test()]
-		public void TestNewItemInTestSet()
-		{
-			var recommender = new BiPolarSlopeOne();
-
-			var training_data = new Ratings();
-			training_data.Add(0, 0, 1.0f);
-			training_data.Add(1, 1, 5.0f);
-			training_data.InitScale();
-
-			recommender.Ratings = training_data;
-			recommender.Train();
-
-			Assert.AreEqual( 3.0f, recommender.Predict(0, 2) );
-		}
+		const string FILENAME_ITEMS = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/places.txt";
 
 		[Test()]
-		public void TestNewUserInTestSet()
+		public void TestNearestNeighborsItem()
 		{
-			var recommender = new BiPolarSlopeOne();
+			var recommender = new RankGeoFM();
+			recommender.Items = Utils.ReadPOIs (FILENAME_ITEMS);
 
-			var training_data = new Ratings();
-			training_data.Add(0, 0, 1.0f);
-			training_data.Add(1, 1, 5.0f);
-			training_data.InitScale();
+			recommender.Train ();
+			var items = recommender.GetNearestNeighborsItem (1);
 
-			recommender.Ratings = training_data;
-			recommender.Train();
-
-			Assert.AreEqual( 3.0f, recommender.Predict(2, 1) );
+			Assert.AreEqual( recommender.K, items.Count );
 		}
+
 	}
 }

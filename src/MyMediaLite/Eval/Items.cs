@@ -47,11 +47,11 @@ namespace MyMediaLite.Eval
 		/// </list>
 		/// An item recommender is better than another according to one of those measures its score is higher.
 		/// </remarks>
-		static public ICollection<string> Measures
-		{
+		static public ICollection<string> Measures {
 			get {
-				string[] measures = { "AUC", "prec@5", "prec@10", "MAP", "recall@5", "recall@10", "NDCG", "MRR" };
-				return new HashSet<string>(measures);
+				string [] measures = { "AUC", "prec@5", "prec@10", "prec@20", "prec@50", "prec@100", "prec@500", "MAP", 
+					"recall@5", "recall@10", "recall@20", "recall@50", "recall@100", "recall@500", "NDCG", "MRR" };
+				return new HashSet<string> (measures);
 			}
 		}
 
@@ -59,39 +59,38 @@ namespace MyMediaLite.Eval
 		/// <param name="candidate_item_mode">the mode used to determine the candidate items</param>
 		/// <param name="test">test cases</param>
 		/// <param name="training">training data</param>
-		static public IList<int> Candidates(
+		static public IList<int> Candidates (
 			IList<int> candidate_items,
 			CandidateItems candidate_item_mode,
 			IPosOnlyFeedback test,
 			IPosOnlyFeedback training)
 		{
-			IList<int> test_items = (test != null) ? test.AllItems : new int[0];
+			IList<int> test_items = (test != null) ? test.AllItems : new int [0];
 			IList<int> result = null;
 
-			switch (candidate_item_mode)
-			{
-				case CandidateItems.TRAINING:
-					result = training.AllItems.ToArray();
-					break;
-				case CandidateItems.TEST:
-					result = test.AllItems.ToArray();
-					break;
-				case CandidateItems.OVERLAP:
-					result = test_items.Intersect(training.AllItems).ToList();
-					break;
-				case CandidateItems.UNION:
-					result = test_items.Union(training.AllItems).ToList();
-					break;
-				case CandidateItems.EXPLICIT:
-					if (candidate_items == null)
-						throw new ArgumentNullException("candidate_items");
-					result = candidate_items.ToArray();
-					break;
-				default:
-					throw new ArgumentException("Unknown candidate_item_mode: " + candidate_item_mode.ToString());
+			switch (candidate_item_mode) {
+			case CandidateItems.TRAINING:
+				result = training.AllItems.ToArray ();
+				break;
+			case CandidateItems.TEST:
+				result = test.AllItems.ToArray ();
+				break;
+			case CandidateItems.OVERLAP:
+				result = test_items.Intersect (training.AllItems).ToList ();
+				break;
+			case CandidateItems.UNION:
+				result = test_items.Union (training.AllItems).ToList ();
+				break;
+			case CandidateItems.EXPLICIT:
+				if (candidate_items == null)
+					throw new ArgumentNullException ("candidate_items");
+				result = candidate_items.ToArray ();
+				break;
+			default:
+				throw new ArgumentException ("Unknown candidate_item_mode: " + candidate_item_mode.ToString ());
 			}
 
-			result.Shuffle();
+			result.Shuffle ();
 			return result;
 		}
 
@@ -123,7 +122,7 @@ namespace MyMediaLite.Eval
 		/// <param name="repeated_events">allow repeated events in the evaluation (i.e. items accessed by a user before may be in the recommended list)</param>
 		/// <param name="n">length of the item list to evaluate -- if set to -1 (default), use the complete list, otherwise compute evaluation measures on the top n items</param>
 		/// <returns>a dictionary containing the evaluation results (default is false)</returns>
-		static public ItemRecommendationEvaluationResults Evaluate(
+		static public ItemRecommendationEvaluationResults Evaluate (
 			this IRecommender recommender,
 			IPosOnlyFeedback test,
 			IPosOnlyFeedback training,
@@ -135,75 +134,75 @@ namespace MyMediaLite.Eval
 		{
 			if (test_users == null)
 				test_users = test.AllUsers;
-			candidate_items = Candidates(candidate_items, candidate_item_mode, test, training);
+			candidate_items = Candidates (candidate_items, candidate_item_mode, test, training);
 
-			var result = new ItemRecommendationEvaluationResults();
+			var result = new ItemRecommendationEvaluationResults ();
 
 			// make sure that the user matrix is completely initialized before entering parallel code
 			var training_user_matrix = training.UserMatrix;
-			var test_user_matrix     = test.UserMatrix;
+			var test_user_matrix = test.UserMatrix;
 
 			int num_users = 0;
-			Parallel.ForEach(test_users, user_id => {
-				try
-				{
-					var correct_items = new HashSet<int>(test_user_matrix[user_id]);
-					correct_items.IntersectWith(candidate_items);
+			Parallel.ForEach (test_users, user_id => {
+				try {
+					var correct_items = new HashSet<int> (test_user_matrix [user_id]);
+					correct_items.IntersectWith (candidate_items);
 					if (correct_items.Count == 0)
 						return;
 
-					var ignore_items_for_this_user = new HashSet<int>(
-						repeated_events == RepeatedEvents.Yes || training_user_matrix[user_id] == null ? new int[0] : training_user_matrix[user_id]
+					var ignore_items_for_this_user = new HashSet<int> (
+						repeated_events == RepeatedEvents.Yes || training_user_matrix [user_id] == null ? new int [0] : training_user_matrix [user_id]
 					);
 
-					ignore_items_for_this_user.IntersectWith(candidate_items);
+					ignore_items_for_this_user.IntersectWith (candidate_items);
 					int num_candidates_for_this_user = candidate_items.Count - ignore_items_for_this_user.Count;
 					if (correct_items.Count == num_candidates_for_this_user)
 						return;
 
-					var prediction = recommender.Recommend(user_id, candidate_items:candidate_items, n:n, ignore_items:ignore_items_for_this_user);
-					var prediction_list = (from t in prediction select t.Item1).ToArray();
+					var prediction = recommender.Recommend (user_id, candidate_items: candidate_items, n: n, ignore_items: ignore_items_for_this_user);
+					var prediction_list = (from t in prediction select t.Item1).ToArray ();
 
 					int num_dropped_items = num_candidates_for_this_user - prediction.Count;
-					double auc  = AUC.Compute(prediction_list, correct_items, num_dropped_items);
-					double map  = PrecisionAndRecall.AP(prediction_list, correct_items);
-					double ndcg = NDCG.Compute(prediction_list, correct_items);
-					double rr   = ReciprocalRank.Compute(prediction_list, correct_items);
-					var positions = new int[] { 5, 10 };
-					var prec   = PrecisionAndRecall.PrecisionAt(prediction_list, correct_items, positions);
-					var recall = PrecisionAndRecall.RecallAt(prediction_list, correct_items, positions);
+					double auc = AUC.Compute (prediction_list, correct_items, num_dropped_items);
+					double map = PrecisionAndRecall.AP (prediction_list, correct_items);
+					double ndcg = NDCG.Compute (prediction_list, correct_items);
+					double rr = ReciprocalRank.Compute (prediction_list, correct_items);
+					var positions = new int [] { 5, 10, 20, 50, 100, 500 };
+					var prec = PrecisionAndRecall.PrecisionAt (prediction_list, correct_items, positions);
+					var recall = PrecisionAndRecall.RecallAt (prediction_list, correct_items, positions);
 
 					// thread-safe incrementing
-					lock (result)
-					{
+					lock (result) {
 						num_users++;
-						result["AUC"]       += (float) auc;
-						result["MAP"]       += (float) map;
-						result["NDCG"]      += (float) ndcg;
-						result["MRR"]       += (float) rr;
-						result["prec@5"]    += (float) prec[5];
-						result["prec@10"]   += (float) prec[10];
-						result["recall@5"]  += (float) recall[5];
-						result["recall@10"] += (float) recall[10];
+						result ["AUC"] += (float)auc;
+						result ["MAP"] += (float)map;
+						result ["NDCG"] += (float)ndcg;
+						result ["MRR"] += (float)rr;
+						result ["prec@5"] += (float)prec [5];
+						result ["prec@10"] += (float)prec [10];
+						result ["prec@20"] += (float)prec [20];
+						result ["prec@50"] += (float)prec [50];
+						result ["prec@100"] += (float)prec [100];
+						result ["prec@500"] += (float)prec [500];
+						result ["recall@5"] += (float)recall [5];
+						result ["recall@10"] += (float)recall [10];
 					}
 
 					if (num_users % 1000 == 0)
-						Console.Error.Write(".");
+						Console.Error.Write (".");
 					if (num_users % 60000 == 0)
-						Console.Error.WriteLine();
-				}
-				catch (Exception e)
-				{
-					Console.Error.WriteLine("===> ERROR: " + e.Message + e.StackTrace);
+						Console.Error.WriteLine ();
+				} catch (Exception e) {
+					Console.Error.WriteLine ("===> ERROR: " + e.Message + e.StackTrace);
 					throw;
 				}
 			});
 
 			foreach (string measure in Measures)
-				result[measure] /= num_users;
-			result["num_users"] = num_users;
-			result["num_lists"] = num_users;
-			result["num_items"] = candidate_items.Count;
+				result [measure] /= num_users;
+			result ["num_users"] = num_users;
+			result ["num_lists"] = num_users;
+			result ["num_items"] = candidate_items.Count;
 
 			return result;
 		}
@@ -214,16 +213,16 @@ namespace MyMediaLite.Eval
 		/// <param name="test_users">a list of integers with all test users; if null, use all users in the test cases</param>
 		/// <param name="candidate_items">a list of integers with all candidate items</param>
 		/// <param name="candidate_item_mode">the mode used to determine the candidate items</param>
-		public static double ComputeFit(
+		public static double ComputeFit (
 			this ItemRecommender recommender,
 			IList<int> test_users = null,
 			IList<int> candidate_items = null,
 			CandidateItems candidate_item_mode = CandidateItems.OVERLAP)
 		{
-			return recommender.Evaluate(
+			return recommender.Evaluate (
 				recommender.Feedback, recommender.Feedback,
 				test_users, candidate_items,
-				candidate_item_mode, RepeatedEvents.Yes)["AUC"];
+				candidate_item_mode, RepeatedEvents.Yes) ["AUC"];
 		}
 	}
 }
