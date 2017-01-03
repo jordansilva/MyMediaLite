@@ -22,6 +22,7 @@ using MyMediaLite.RatingPrediction;
 using MyMediaLite.IO;
 using MyMediaLite.Data;
 using Mono.Options;
+using System.IO;
 
 namespace Baselines.Commands
 {
@@ -32,8 +33,10 @@ namespace Baselines.Commands
 
 		ITimedRatings FeedbackRatings;
 		IList<POI> Items;
+		IMapping user_mappings;
+		IMapping item_mappings;
 
-		public RankGeoFMCommand (string training, string test) : base(typeof(RankGeoFM))
+		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM))
 		{
 			path_training = training;
 			path_test = test;
@@ -42,41 +45,41 @@ namespace Baselines.Commands
 
 		//protected override void CreateModel (Type baseline)
 		//{
-			//int user_count = FeedbackRatings.AllUsers.Count;
-			//int item_count = FeedbackRatings.AllItems.Count;
-			//int K = 300;
-			//int rangeSize = 10;
+		//int user_count = FeedbackRatings.AllUsers.Count;
+		//int item_count = FeedbackRatings.AllItems.Count;
+		//int K = 300;
+		//int rangeSize = 10;
 
-			//double [,] U1 = new double [user_count, K];
-			//double [,] U2 = new double [user_count, K];
-			//double [,] L1 = new double [item_count, K];
-			//double [,] L2 = new double [item_count, K];
-			//double [,] L3 = new double [item_count, K];
-			//double [,] F = new double [rangeSize, K];
+		//double [,] U1 = new double [user_count, K];
+		//double [,] U2 = new double [user_count, K];
+		//double [,] L1 = new double [item_count, K];
+		//double [,] L2 = new double [item_count, K];
+		//double [,] L3 = new double [item_count, K];
+		//double [,] F = new double [rangeSize, K];
 
-			//Dictionary<int, int> idMapperLocations = new Dictionary<int, int> ();
-			//Dictionary<int, int> idMapperUser = new Dictionary<int, int> ();
+		//Dictionary<int, int> idMapperLocations = new Dictionary<int, int> ();
+		//Dictionary<int, int> idMapperUser = new Dictionary<int, int> ();
 
 
-			//initMatrixNormal (FeedbackRatings.AllUsers, ref U1, ref idMapperUser, K);
-			//initMatrixNormal (FeedbackRatings.AllUsers, ref U2, ref idMapperUser, K);
-			//initMatrixNormal (FeedbackRatings.AllItems, ref L1, ref idMapperLocations, K);
-			//initMatrixNormal (FeedbackRatings.AllItems, ref L2, ref idMapperLocations, K);
-			//initMatrixNormal (FeedbackRatings.AllItems, ref L3, ref idMapperLocations, K);
-			//initMatrixNormal (rangeSize, ref F, K);
+		//initMatrixNormal (FeedbackRatings.AllUsers, ref U1, ref idMapperUser, K);
+		//initMatrixNormal (FeedbackRatings.AllUsers, ref U2, ref idMapperUser, K);
+		//initMatrixNormal (FeedbackRatings.AllItems, ref L1, ref idMapperLocations, K);
+		//initMatrixNormal (FeedbackRatings.AllItems, ref L2, ref idMapperLocations, K);
+		//initMatrixNormal (FeedbackRatings.AllItems, ref L3, ref idMapperLocations, K);
+		//initMatrixNormal (rangeSize, ref F, K);
 
-			//Recommender = new WeatherContextAwareItemRecommender(U1, U2, L1, L2, L3, F, 
-			//                                                     idMapperLocations, 
-			//                                                     idMapperUser,
-			//                                                     0, null);
-			
+		//Recommender = new WeatherContextAwareItemRecommender(U1, U2, L1, L2, L3, F, 
+		//                                                     idMapperLocations, 
+		//                                                     idMapperUser,
+		//                                                     0, null);
+
 
 		//}
 
 		public override void SetupOptions (string [] args)
 		{
 			base.SetupOptions (args);
-			
+
 			string user_file = null;
 			string item_file = null;
 
@@ -127,13 +130,30 @@ namespace Baselines.Commands
 
 		protected override void Init ()
 		{
+			user_mappings = new IdentityMapping ();
+			item_mappings = new IdentityMapping ();
+
+			if (File.Exists ("user.mapping")) {
+				user_mappings = "user.mapping".LoadMapping ();
+				item_mappings = "item.mapping".LoadMapping ();
+			}
+
 			if (!string.IsNullOrEmpty (path_training)) {
 				Console.WriteLine ("Loading training data");
-				FeedbackRatings = CustomTimedRatingData.Read (path_training, 
-				                                              new IdentityMapping (), 
-				                                              new IdentityMapping (),
-				                                              TestRatingFileFormat.WITHOUT_RATINGS, true);	
+				Feedback = ItemData.Read (path_training, user_mappings, item_mappings, true);
+				FeedbackRatings = CustomTimedRatingData.Read (path_training,
+															  user_mappings,
+															  item_mappings,
+															  TestRatingFileFormat.WITHOUT_RATINGS, true);
 			}
+
+			if (!string.IsNullOrEmpty (path_test)) {
+				Console.WriteLine ("Loading test data");
+				TestFeedback = ItemData.Read (path_test, user_mappings, item_mappings, true);
+			}
+
+			user_mappings.SaveMapping ("user.mapping");
+			item_mappings.SaveMapping ("item.mapping");
 
 			//if (!string.IsNullOrEmpty (path_test)) {
 			//	Console.WriteLine ("Loading test data");
@@ -151,11 +171,35 @@ namespace Baselines.Commands
 
 			((RankGeoFM)Recommender).Items = Items;
 			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFM)Recommender).Feedback = Feedback;
+			((RankGeoFM)Recommender).Validation = TestFeedback;
+			//((RankGeoFM)Recommender).UserMapping = user_mappings;
+			//((RankGeoFM)Recommender).ItemMapping = item_mappings;
 
 			TimeSpan t = Wrap.MeasureTime (delegate () {
 				Recommender.Train ();
 			});
-			Console.WriteLine ("Distance Matrix: {0} seconds", t.TotalSeconds);
+			Console.WriteLine ("RankGeoFM: {0} seconds", t.TotalSeconds);
+		}
+
+		public void Eval ()
+		{
+			Console.WriteLine ("Loading model...");
+			CreateModel (typeof (RankGeoFM));
+			((RankGeoFM)Recommender).Items = Items;
+			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFM)Recommender).LoadModel ("");
+
+			Console.WriteLine ("Evaluating");
+			var results = MyMediaLite.Eval.Items.Evaluate (Recommender, TestFeedback, Feedback, n: 500);
+			foreach (var item in results) {
+				Console.WriteLine ("{0}/{1}", item.Key, item.Value);
+			}
+
+			//MyMediaLite.Eval.Items.Evaluate(Recommender, Feedback, Feedback, 
+			//Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
+			//string filename = string.Format ("RankGeoFM");
+			//MyMediaLite.Helper.Utils.SaveRank (filename, result);
 		}
 
 		//QueryResult Train (uint num_factors, float learn_rate, float regularization)

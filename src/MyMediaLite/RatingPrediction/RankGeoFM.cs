@@ -27,7 +27,6 @@ using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics;
-using MathNet.Numerics.Providers.LinearAlgebra.Mkl;
 
 namespace MyMediaLite.RatingPrediction
 {
@@ -67,6 +66,10 @@ namespace MyMediaLite.RatingPrediction
 		const string FILENAME_MAP_USERS = @"MapUsers.bin.RankGeoFM";
 		const string FILENAME_MAP_ITEMS = @"MapItems.bin.RankGeoFM";
 		const string FILENAME_UIF = @"UIF.bin.RankGeoFM";
+		const string FILENAME_FG = @"FG.bin.RankGeoFM";
+		const string FILENAME_UL = @"UL.bin.RankGeoFM";
+		const string FILENAME_UFG = @"UFG.bin.RankGeoFM";
+
 
 		Matrix<double> distanceMatrix;
 		DataType.Matrix<int> distanceMatrixIndex;
@@ -154,6 +157,12 @@ namespace MyMediaLite.RatingPrediction
 		/// <summary>The POIs items.</summary>
 		public IList<POI> Items { get; set; }
 
+		/// <summary>Feedback data </summary>
+		public IPosOnlyFeedback Feedback { get; set; }
+
+		/// <summary>Validation data </summary>
+		public IPosOnlyFeedback Validation { get; set; }
+
 		#endregion
 
 		///
@@ -176,42 +185,39 @@ namespace MyMediaLite.RatingPrediction
 		/// </summary>
 		void Initialize ()
 		{
-			idUsers = Ratings.AllUsers;
-			idItems = Items.Select (x => x.Id).ToList ();
-			totalUsers = idUsers.Count;
-			totalItems = idItems.Count;
+			totalUsers = Ratings.AllUsers.Max ();
+			totalItems = Items.Select (x => x.Id).ToList ().Max ();
 
-			Console.WriteLine ("{0} Computing distance matrix", DateTime.Now);
 			ComputeDistanceMatrix ();
 
-			Console.WriteLine ("{0} Creating weighted matrix", DateTime.Now);
 			CreateWeightedMatrix ();
 
-			Console.WriteLine ("{0} Creating latent factors matrix", DateTime.Now);
 			CreatePreferenceMatrix ();
 
-			Console.WriteLine ("{0} Initializing loss weight function", DateTime.Now);
 			InitializeLossWeight ();
 
-			Console.WriteLine ("{0} Creating user-item frequency matrix", DateTime.Now);
 			CreateUserItemFrequencyMatrix ();
 		}
 
 		void CreatePreferenceMatrix ()
 		{
 			if (File.Exists (FILENAME_U1)) {
+				Console.WriteLine ("{0} Loading latent factors matrix", DateTime.Now);
+				
 				U_1 = MatrixMarketReader.ReadMatrix<double> (FILENAME_U1, Compression.GZip);
 				U_2 = MatrixMarketReader.ReadMatrix<double> (FILENAME_U2, Compression.GZip);
 				L_1 = MatrixMarketReader.ReadMatrix<double> (FILENAME_L1, Compression.GZip);
 				//idMapperUsers = (Dictionary<int, int>)FileSerializer.Deserialize (FILENAME_MAP_USERS);
 				//idMapperLocations = (Dictionary<int, int>)FileSerializer.Deserialize (FILENAME_MAP_ITEMS);
 			} else {
+				Console.WriteLine ("{0} Creating latent factors matrix", DateTime.Now);
+				
 				var normalDist = new Normal (0.0, 0.01);
 				normalDist.RandomSource = new System.Random (34);
 
-				U_1 = CreateMatrix.Random<double> (totalUsers + 1, (int)K, normalDist);
-				U_2 = CreateMatrix.Random<double> (totalUsers + 1, (int)K, normalDist);
-				L_1 = CreateMatrix.Random<double> (totalItems + 1, (int)K, normalDist);
+				U_1 = CreateMatrix.Random<double> (totalUsers, (int)K, normalDist);
+				U_2 = CreateMatrix.Random<double> (totalUsers, (int)K, normalDist);
+				L_1 = CreateMatrix.Random<double> (totalItems, (int)K, normalDist);
 
 				//idMapperUsers = new Dictionary<int, int> ();
 				//idMapperLocations = new Dictionary<int, int> ();
@@ -235,14 +241,17 @@ namespace MyMediaLite.RatingPrediction
 				throw new Exception ("Items can not be null");
 
 			if (File.Exists (FILENAME_DISTANCE_MATRIX)) {
+				Console.WriteLine ("{0} Loading distance matrix", DateTime.Now);
+				
 				distanceMatrix = MatrixMarketReader.ReadMatrix<double> (FILENAME_DISTANCE_MATRIX, Compression.GZip);
 				distanceMatrixIndex = (DataType.Matrix<int>)FileSerializer.Deserialize (FILENAME_DISTANCE_MATRIX_IDX);
 			} else {
+				Console.WriteLine ("{0} Computing distance matrix", DateTime.Now);
+				
+				distanceMatrix = CreateMatrix.Dense<double> (totalItems, (int)k_1);
+				distanceMatrixIndex = new DataType.Matrix<int> (totalItems, k_1);
 
-				distanceMatrix = CreateMatrix.Dense<double> (totalItems + 1, (int)k_1);
-				distanceMatrixIndex = new DataType.Matrix<int> (totalItems + 1, k_1);
-
-				var i = 1;
+				var i = 0;
 				Parallel.ForEach (Items, opts, item => CalculateDistancesItem (item, ref i));
 				SaveDistanceMatrix ();
 			}
@@ -256,27 +265,30 @@ namespace MyMediaLite.RatingPrediction
 		/// <param name="count">Count for print status of progress</param>
 		void CalculateDistancesItem (POI item, ref int count)
 		{
-			var dist = new double [totalItems + 1];
-			dist [0] = double.MaxValue;
-			foreach (var item2 in Items) {
-				if (item.Id == item2.Id)
-					dist [item2.Id] = double.MaxValue;
-				else
-					dist [item2.Id] = (DistanceHelper.Distance (item.Coordinates.Latitude, item.Coordinates.Longitude,
-																item2.Coordinates.Latitude, item2.Coordinates.Longitude));
-			}
+			try {
+				var dist = new double [totalItems];
+				foreach (var item2 in Items) {
+					if (item.Id == item2.Id)
+						dist [item2.Id - 1] = double.MaxValue;
+					else
+						dist [item2.Id - 1] = (DistanceHelper.Distance (item.Coordinates.Latitude, item.Coordinates.Longitude,
+																	item2.Coordinates.Latitude, item2.Coordinates.Longitude));
+				}
 
-			var sorted = dist.Select ((x, i) => new KeyValuePair<double, int> (x, i))
-							 .OrderBy (x => x.Key)
-							 .Take ((int)k_1).ToList ();
-			distanceMatrix.SetRow (item.Id, sorted.Select (x => x.Key).ToArray ());
-			distanceMatrixIndex.SetRow (item.Id, sorted.Select (x => x.Value).ToArray ());
-			dist = null;
+				var sorted = dist.Select ((x, i) => new KeyValuePair<double, int> (x, i))
+								 .OrderBy (x => x.Key)
+								 .Take ((int)k_1).ToList ();
+				distanceMatrix.SetRow (item.Id - 1, sorted.Select (x => x.Key).ToArray ());
+				distanceMatrixIndex.SetRow (item.Id - 1, sorted.Select (x => x.Value).ToArray ());
+				dist = null;
 
-			count++;
-			if ((count % 10000) == 0) {
-				Console.WriteLine ("{0} - {1}", DateTime.Now, count);
-				SaveDistanceMatrix ();
+				count++;
+				if ((count % 10000) == 0) {
+					Console.WriteLine ("{0} - {1}", DateTime.Now, count);
+					SaveDistanceMatrix ();
+				}
+			} catch (Exception ex) {
+				throw ex;
 			}
 		}
 
@@ -290,9 +302,13 @@ namespace MyMediaLite.RatingPrediction
 		void CreateWeightedMatrix ()
 		{
 			if (File.Exists (FILENAME_W)) {
+				Console.WriteLine ("{0} Loading weighted matrix", DateTime.Now);
+				
 				W = MatrixMarketReader.ReadMatrix<double> (FILENAME_W, Compression.GZip);
 			} else {
-				W = CreateMatrix.Dense<double> (totalItems + 1, (int)k_1);
+				Console.WriteLine ("{0} Creating weighted matrix", DateTime.Now);
+				
+				W = CreateMatrix.Dense<double> (totalItems, (int)k_1);
 
 				var count = 1;
 				Parallel.For (0, distanceMatrix.RowCount, opts, index => ComputeItemWeightedMatrix (index, ref count));
@@ -332,14 +348,25 @@ namespace MyMediaLite.RatingPrediction
 		void CreateUserItemFrequencyMatrix ()
 		{
 			if (File.Exists (FILENAME_UIF)) {
+				Console.WriteLine ("{0} Loading user-item frequency matrix", DateTime.Now);
+				
 				UIF = MatrixMarketReader.ReadMatrix<double> (FILENAME_UIF, Compression.GZip);
 			} else {
-				UIF = CreateMatrix.Dense<double> (totalUsers + 1, totalItems + 1);
+				Console.WriteLine ("{0} Creating user-item frequency matrix", DateTime.Now);
+				
+				UIF = CreateMatrix.Dense<double> (totalUsers, totalItems);
 				int total = ratings.Count;
 				for (int i = 0; i < total; i++) {
-					int user = ratings.Users [i];
-					int item = ratings.Items [i];
-					UIF [user, item] += 1.0;
+					try {
+						int user = ratings.Users [i];
+						int item = ratings.Items [i];
+						UIF [user - 1, item - 1] += 1.0;
+					} catch (Exception ex) {
+						Console.WriteLine (ex.Message);
+						Console.WriteLine ("i: {0}", i);
+						Console.WriteLine ("user: {0}, item: {1}", ratings.Users [i], ratings.Items[i]);
+						throw ex;
+					}
 				}
 
 				MatrixMarketWriter.WriteMatrix (FILENAME_UIF, UIF, Compression.GZip);
@@ -359,15 +386,15 @@ namespace MyMediaLite.RatingPrediction
 			});
 
 			//Console.WriteLine ("{0} Creating FG matrix", DateTime.Now);
-			FG = CreateMatrix.Dense<double> (totalItems + 1, (int)K);
-			Parallel.For (1, totalItems + 1, opts, index => CreateFGMatrix (index));
+			FG = CreateMatrix.Sparse<double> (totalItems, (int)K);
+			Parallel.For (1, totalItems, opts, index => CreateFGMatrix (index));
 
 			//Console.WriteLine ("{0} Creating UL matrix", DateTime.Now);
-			UL = CreateMatrix.Dense<double> (totalUsers + 1, totalItems + 1);
+			//UL = CreateMatrix.Dense<double> (totalUsers + 1, totalItems + 1);
 			UL = U_1 * L_1.Transpose ();
 
 			//Console.WriteLine ("{0} Creating UFG matrix", DateTime.Now);
-			UFG = CreateMatrix.Dense<double> (totalUsers + 1, totalItems + 1);
+			//UFG = CreateMatrix.Dense<double> (totalUsers + 1, totalItems + 1);
 			UFG = U_2 * FG.Transpose ();
 
 
@@ -383,6 +410,7 @@ namespace MyMediaLite.RatingPrediction
 
 		void CreateFGMatrix (int location)
 		{
+			location -= 1;
 			for (int i = 0; i < k_1; i++) {
 				FG.SetRow (location, FG.Row (location) + W [location, i] * L_1.Row (distanceMatrixIndex [location, i]));
 			}
@@ -420,7 +448,7 @@ namespace MyMediaLite.RatingPrediction
 		/// <returns>The nearest neighbors.</returns>
 		public IList<double> GetNearestNeighborsItem (int id)
 		{
-			return distanceMatrix.Row (id);
+			return distanceMatrix.Row (id - 1);
 		}
 
 		#region Predict Functions
@@ -428,7 +456,15 @@ namespace MyMediaLite.RatingPrediction
 		///
 		public override float Predict (int user_id, int item_id)
 		{
-			throw new NotImplementedException ();
+			var result = ComputeRecommendationScore (user_id, item_id);
+			float floatResult = (float)result;
+			if (float.IsPositiveInfinity (floatResult)) {
+				floatResult = float.MaxValue;
+			} else if (float.IsNegativeInfinity (floatResult)) {
+				floatResult = float.MinValue;
+			}
+
+			return floatResult;
 		}
 
 		///
@@ -445,8 +481,8 @@ namespace MyMediaLite.RatingPrediction
 		/// <param name="item">location</param>
 		private double ComputeRecommendationScore (int user, int item)
 		{
-			var user_pref = UL [user, item]; //ComputeUserPreferenceScore (user, item);
-			var geo_pref = UFG [user, item]; //ComputeGeographicalInfluenceScore (user, item);
+			var user_pref = UL [user - 1, item - 1]; //ComputeUserPreferenceScore (user, item);
+			var geo_pref = UFG [user - 1, item - 1]; //ComputeGeographicalInfluenceScore (user, item);
 
 			return user_pref + geo_pref;
 		}
@@ -454,8 +490,8 @@ namespace MyMediaLite.RatingPrediction
 		//UL
 		double ComputeUserPreferenceScore (int user, int location)
 		{
-			var u_row = U_1.Row (user);
-			var l_row = L_1.Row (location);
+			var u_row = U_1.Row (user - 1);
+			var l_row = L_1.Row (location - 1);
 
 			var score = DataType.VectorExtensions.ScalarProduct (u_row, l_row);
 			return score;
@@ -464,9 +500,9 @@ namespace MyMediaLite.RatingPrediction
 		//UFG
 		double ComputeGeographicalInfluenceScore (int user, int location)
 		{
-			var u_row = U_2.Row (user);
+			var u_row = U_2.Row (user - 1);
 
-			double [] sum = FG.Row (location).ToArray ();
+			double [] sum = FG.Row (location - 1).ToArray ();
 
 			var score = DataType.VectorExtensions.ScalarProduct (u_row, sum);
 			return score;
@@ -511,88 +547,124 @@ namespace MyMediaLite.RatingPrediction
 
 			var index = ratings.RandomIndex;
 			var best_value = 0.0f;
-			while (iter <= MaxIterations) {
+			object [] best_matrix = null;
+			var evaluations = new List<string> ();
+			while (true) {
 				TimeSpan t = Wrap.MeasureTime (delegate () {
 					CalculatingTemporaryMatrices ();
 					//Console.WriteLine ("Calculating Temporary Matrices {0}: {1} seconds", iter, t.TotalSeconds);
 
-				//	[a, b] = test_performance_new (filename, U_1, L_1, U_2, F_G, 10);
-				//myOutPut = sprintf ('%s_POI_Rec_Iterations/%d.mat', filename, iteration);
-				//save (myOutPut, 'a', 'b');
-				//if (a > a_best)
-				//	a_best = a;
-				//inputFile = sprintf ('%s_POI_Rec_Iterations/decomp-WARP.mat', filename);
-				//save (inputFile, 'U_1', 'U_2', 'L_1', 'A', 'Index_A');
-				//end
+					if (Validation != null) {
+						var results = Eval.Items.Evaluate (this, Validation, Feedback, n: 10);
+						String text = string.Format ("iteration={0}, @10, pre={1}, recall={2}", iter, results ["prec@10"], results ["recall@10"]);
+						evaluations.Add (text);
+						Console.WriteLine (text);
+						if (results ["prec@10"] > best_value) {
+							best_value = results ["prec@10"];
+							best_matrix = new [] { U_1, L_1, U_2, FG, UFG, UL };
+						}
+					}
 
 					//Matrices to compare difference after each iteration
 					var U_1_pre = Matrix<double>.Build.DenseOfMatrix (U_1);
 					var U_2_pre = Matrix<double>.Build.DenseOfMatrix (U_2);
 					var L_1_pre = Matrix<double>.Build.DenseOfMatrix (L_1);
 
+					if (iter == 1) {
+						var first_diff = (U_1_pre - U_1).L2Norm () + (U_2_pre - U_2).L2Norm () + (L_1_pre - L_1).L2Norm ();
+						Console.WriteLine ("Iteration 0 - Latent Diffs: {0}", first_diff);
+					}
+
 					//Console.WriteLine ("Starting iteration");
 					Iterate (index);
-
-					var U_1_diff = (U_1_pre - U_1).L2Norm ();
-					var U_2_diff = (U_2_pre - U_2).L2Norm ();
-					var L_1_diff = (L_1_pre - L_1).L2Norm ();
-					var diff = U_1_diff + U_2_diff + L_1_diff;
+					var diff = (U_1_pre - U_1).L2Norm () + (U_2_pre - U_2).L2Norm () + (L_1_pre - L_1).L2Norm ();
 					Console.WriteLine ("Iteration {0} - Latent Diffs: {1}", iter, diff);
 				});
 
 				Console.WriteLine ("Iteration {0}: {1} seconds", iter, t.TotalSeconds);
 				iter++;
+
+				if (iter >= MaxIterations)
+					break;
 			}
 
 			//Saving Weighted Matrix
-			SaveWeightedMatrix ();
+			SaveModel (null);
+
+			StreamWriter file = File.CreateText ("iterations.txt");
+			file.WriteLine (string.Join ("\n", evaluations));
+			file.Close ();
+
+			if (best_matrix != null) {
+				U_1 = (Matrix<double>)best_matrix [0];
+				L_1 = (Matrix<double>)best_matrix [1];
+				U_2 = (Matrix<double>)best_matrix [2];
+				FG = (Matrix<double>)best_matrix [3];
+				UFG = (Matrix<double>)best_matrix [4];
+				UL = (Matrix<double>)best_matrix [5];
+				SaveModel ("best_iteration");
+			}
 		}
 
 		void Iterate (IList<int> rating_indices)
 		{
-			var locations = new int [totalItems];
-			idItems.CopyTo (locations);
+			//var locations = new int [totalItems];
+			var random = new System.Random ();
+			//RandomExtensions.NextInt32s (random, locations, 1, totalItems);
+
 			int count = 1;
 
 			//Iteration through all checkins
 			foreach (var index in rating_indices) {
-				int user = ratings.Users [index];
-				int item1 = ratings.Items [index];
+				try {
+					int user = ratings.Users [index];
+					int item1 = ratings.Items [index];
 
-				var x_score = ComputeRecommendationScore (user, item1);
-				var x_freq = UIF [user, item1];
+					var x_score = ComputeRecommendationScore (user, item1);
+					var x_freq = UIF [user - 1, item1 - 1];
 
-				//FIXME: Slow shuffle (improve!)
-				//locations.Shuffle ();
+					////Sampling ranking (lines 5~8)
+					var item2 = -1;
+					var n = 0;
+					var y_score = 0.0;
+					var y_freq = 0.0;
 
-				////Sampling ranking (lines 5~8)
-				var item2 = -1;
-				var n = 0;
-				var y_score = 0.0;
-				var y_freq = 0.0;
+					while (true) {
+						var item = random.Next (1, totalItems);
 
-				foreach (var item in locations) {
-					y_score = ComputeRecommendationScore (user, item);
-					y_freq = UIF [user, item];
-					n++;
+						y_score = ComputeRecommendationScore (user, item);
+						y_freq = UIF [user - 1, item - 1];
+						n++;
 
-					if (Incompatibility (x_score, x_freq, y_score, y_freq) == 1) {
-						item2 = item;
-						break;
+						if (Incompatibility (x_score, x_freq, y_score, y_freq) == 1) {
+							item2 = item;
+							break;
+						}
+
+						if (n >= totalItems)
+							break;
 					}
-				}
 
-				//Updating relevant latent factors by using SGD method (lines 9~15)
-				if (item2 != -1) {
-					//ƞ
-					n = Convert.ToInt32 (Math.Floor ((totalItems - 1) / (n * 1.0)));
-					double ƞ = E (n) * deltaFunction (x_score, y_score);
-					UpdateRelevantFactors (item1, item2, user, ƞ);
-				}
+					//Updating relevant latent factors by using SGD method (lines 9~15)
+					if (item2 != -1) {
+						//ƞ
+						n = Convert.ToInt32 (Math.Floor ((totalItems - 1.0) / (n * 1.0)));
+						//matlab code
+						//double ƞ = E (n);
 
-				count++;
-				if (count % 10000 == 0)
-					Console.Write (".");
+						//paper implementation
+						double ƞ = E (n) * deltaFunction (x_score, y_score);
+
+						UpdateRelevantFactors (item1 - 1, item2 - 1, user - 1, ƞ);
+					}
+
+					count++;
+					if (count % 10000 == 0)
+						Console.Write (".");
+				} catch (Exception ex) {
+					Console.WriteLine (ex.Message);
+					Console.WriteLine ("Rating index: {0}", index);
+				}
 			}
 
 			Console.WriteLine ();
@@ -607,35 +679,45 @@ namespace MyMediaLite.RatingPrediction
 		/// <param name="ƞ">loss ƞ</param>
 		void UpdateRelevantFactors (int item1, int item2, int user, double ƞ)
 		{
-
 			//g
+			//paper
 			var g = FG.Row (item2) - FG.Row (item1);
+			//matlab implementation
+			//var g = FG.Row (item1) - FG.Row (item2);
 
-			var u1_user = U_1.Row (user);
-			var u2_user = U_2.Row (user);
 			var l1_item1 = L_1.Row (item1);
 			var l1_item2 = L_1.Row (item2);
 
-			//updating U_1
+			//updating U_1 (paper implementation)
 			//eq. U_1 = u1 - γƞ(L_l' - L_l)
-			var u1_new = u1_user - (γ * ƞ) * (l1_item2 - l1_item1);
+			var u1_new = U_1.Row (user) - (γ * ƞ * (l1_item2 - l1_item1));
+			
+			//matlab code
+			//eq. U_1 = u1 + γƞ(L_l - L_l')
+			//var u1_new = U_1.Row (user) + (γ * ƞ * (l1_item1 - l1_item2));
 			U_1.SetRow (user, u1_new);
 
-			//updating U_2
+			//updating U_2 (paper implementation)
 			//eq. U_2 = u2 - γƞg
-			var u2_new = u2_user - ((γ * ƞ) * g);
+			var u2_new = U_2.Row (user) - (γ * ƞ * g);
+
+			//matlab code
+			//eq. U_2 = u2 + γƞg
+			//var u2_new = U_2.Row (user) + (γ * ƞ * g);
 			U_2.SetRow (user, u2_new);
 
 			//γƞU_1
-			var wu1 = (γ * ƞ) * u1_new;
-
-			//updating L_l' (item 2)
-			//eq. L_1 = L_l' - γƞU_1
-			L_1.SetRow (item2, l1_item2 - wu1);
+			var wu1 = γ * ƞ * U_1.Row (user);
 
 			//updating L_l (item 1)
 			//eq. L_1 = L_l + γƞU_1
 			L_1.SetRow (item1, l1_item1 + wu1);
+
+			//updating L_l' (item 2)
+			//eq. L_1 = L_l' - γƞU_1
+			//l1_item2 = l1_item2 + (γ * (-ƞ * U_1.Row (user)));
+			L_1.SetRow (item2, l1_item2 - wu1);
+
 
 			//Project the update lataent factors to enforce constraints in Eqs. (5) ~ (7),
 			UpdateRelevantFactorsConstraints (U_1, user, C);
@@ -650,16 +732,18 @@ namespace MyMediaLite.RatingPrediction
 
 			var norm = row.L2Norm ();
 			if (norm > normalizeValue)
-				matrix.SetRow (rowIndex, C * (row / norm));
+				matrix.SetRow (rowIndex, C * row / norm);
 		}
 
 		void InitializeLossWeight ()
 		{
-			lossWeight = new double [totalItems + 1];
+			Console.WriteLine ("{0} Initializing loss weight function", DateTime.Now);
+			
+			lossWeight = new double [totalItems];
 			double lossWeightTotal = 0.0;
 
-			for (int i = 1; i <= totalItems; i++) {
-				var loss = lossWeightTotal + 1.0 / i;
+			for (int i = 0; i < totalItems; i++) {
+				var loss = lossWeightTotal + 1.0 / (i + 1);
 				lossWeight [i] = loss;
 				lossWeightTotal = loss;
 			}
@@ -693,7 +777,7 @@ namespace MyMediaLite.RatingPrediction
 		/// <param name="r">Rating incompatibility.</param>
 		private double E (int r)
 		{
-			return lossWeight [r];
+			return lossWeight [r - 1];
 
 			//double sum = 0;
 			//for (int i = 1; i <= r; i++) {
@@ -723,12 +807,38 @@ namespace MyMediaLite.RatingPrediction
 			return (sigmoidFunction (y_score + ε - x_score) * (1 - (sigmoidFunction (y_score + ε - x_score))));
 		}
 
-
-		void SaveWeightedMatrix ()
+		///
+		public override void LoadModel (string file)
 		{
-			MatrixMarketWriter.WriteMatrix (FILENAME_U1, U_1, Compression.GZip);
-			MatrixMarketWriter.WriteMatrix (FILENAME_U2, U_2, Compression.GZip);
-			MatrixMarketWriter.WriteMatrix (FILENAME_L1, L_1, Compression.GZip);
+			if (!String.IsNullOrEmpty (file))
+				file += "/";
+
+			U_1 = MatrixMarketReader.ReadMatrix<double> (file + FILENAME_U1, Compression.GZip);
+			U_2 = MatrixMarketReader.ReadMatrix<double> (file + FILENAME_U2, Compression.GZip);
+			L_1 = MatrixMarketReader.ReadMatrix<double> (file + FILENAME_L1, Compression.GZip);
+
+			FG = MatrixMarketReader.ReadMatrix<double> (file + FILENAME_FG, Compression.GZip);
+			UL = MatrixMarketReader.ReadMatrix<double> (file + FILENAME_UL, Compression.GZip);
+			UFG = MatrixMarketReader.ReadMatrix<double> (file + FILENAME_UFG, Compression.GZip);
+		}
+
+		///
+		public override void SaveModel (string path)
+		{
+			if (!string.IsNullOrEmpty (path)) {
+				if (!Directory.Exists (path))
+					Directory.CreateDirectory (path);
+				
+				path += "/";
+			}
+
+			MatrixMarketWriter.WriteMatrix (path + FILENAME_U1, U_1, Compression.GZip);
+			MatrixMarketWriter.WriteMatrix (path + FILENAME_U2, U_2, Compression.GZip);
+			MatrixMarketWriter.WriteMatrix (path + FILENAME_L1, L_1, Compression.GZip);
+
+			MatrixMarketWriter.WriteMatrix (path + FILENAME_FG, FG, Compression.GZip);
+			MatrixMarketWriter.WriteMatrix (path + FILENAME_UL, UL, Compression.GZip);
+			MatrixMarketWriter.WriteMatrix (path + FILENAME_UFG, UFG, Compression.GZip);
 		}
 
 		void SaveDistanceMatrix ()

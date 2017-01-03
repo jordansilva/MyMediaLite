@@ -61,7 +61,7 @@ namespace Baselines
 			program.mFold = "fold_1";
 			program.mTraining = string.Format ("{0}/{1}/train_all.txt", DATASET_FOLDER, program.mFold);
 			program.mValidation = string.Format ("{0}/{1}/validation.txt", DATASET_FOLDER, program.mFold);
-			program.mTest = String.Format ("{0}/{1}/test.txt", DATASET_FOLDER, program.mFold);
+			program.mTest = string.Format ("{0}/{1}/test.txt", DATASET_FOLDER, program.mFold);
 
 			////MappingFoldHelper mapping = new MappingFoldHelper (program.mTraining, program.mValidation, program.mTest);
 
@@ -93,7 +93,7 @@ namespace Baselines
 			//mMethod = "ItemKNN";
 
 			mTraining = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/train_tensor.txt";
-			mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/fold_1/validation.txt";
+			mValidation = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/test_tensor.txt";
 			args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/tensor_lat_lng.txt" };
 			mMethod = "RankGeoFM";
 
