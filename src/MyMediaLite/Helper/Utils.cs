@@ -46,6 +46,20 @@ namespace MyMediaLite.Helper
 		}
 
 		///
+		public static IList<User> ReadUsers (string filename, bool skip_header = true)
+		{
+			TextReader stream = File.OpenText (filename);
+			var csvHelper = new CsvReader (stream);
+			csvHelper.Configuration.Delimiter = ",";
+			csvHelper.Configuration.HasHeaderRecord = skip_header;
+			csvHelper.Configuration.RegisterClassMap<UserMap> ();
+			var users = csvHelper.GetRecords<User> ().ToList ();
+			stream.Close ();
+
+			return users;
+		}
+
+		///
 		public static IList<Checkin> ReadCheckins (string filename, bool skip_header = true)
 		{
 			string binary_filename = filename + ".bin.Baselines";
@@ -106,12 +120,12 @@ namespace MyMediaLite.Helper
 		public static void SaveRank (string filename, QueryResult result)
 		{
 			//Saving results
-			string path = string.Format ("output/{0}", filename);
+			string path = string.Format ("output/ranks/{0}.rank", filename);
 			CreateFile (path);
 
 			TextWriter writer = new StreamWriter (path, true, System.Text.Encoding.UTF8);
 			foreach (var query in result.Items) {
-				int pos = 1;
+				int pos = 0;
 				foreach (var item in query.Rank) {
 					string line = string.Format ("Q{0}\t0\t{1}\t{2}\t{3}\t{4}", query.Id, item.Item1, pos, item.Item2.ToString ("R"), query.Description);
 					writer.WriteLine (line);
@@ -121,7 +135,7 @@ namespace MyMediaLite.Helper
 			writer.Close ();
 
 			//Saving metrics
-			string pathMetrics = string.Format ("output/{0}.metrics", filename);
+			string pathMetrics = string.Format ("output/metrics/{0}.metrics", filename);
 			CreateFile (pathMetrics);
 			writer = new StreamWriter (pathMetrics, true, System.Text.Encoding.UTF8);
 

@@ -138,7 +138,7 @@ namespace MyMediaLite.RatingPrediction
 		///
 		public override float Predict(int user_id, int item_id, DateTime time)
 		{
-			float result = base.Predict(user_id, item_id, time);
+			float result = base.Predict (user_id, item_id, time);
 			int day = RelativeDay(time);
 			if (day <= latest_relative_day)
 				result += item_bias_at_frequency[item_id, log_frequency_by_day[user_id, day]];

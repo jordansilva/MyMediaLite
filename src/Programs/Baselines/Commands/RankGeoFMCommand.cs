@@ -33,10 +33,11 @@ namespace Baselines.Commands
 
 		ITimedRatings FeedbackRatings;
 		IList<POI> Items;
+		IList<User> Users;
 		IMapping user_mappings;
 		IMapping item_mappings;
 
-		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM))
+		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM_Full))
 		{
 			path_training = training;
 			path_test = test;
@@ -72,8 +73,6 @@ namespace Baselines.Commands
 		//                                                     idMapperLocations, 
 		//                                                     idMapperUser,
 		//                                                     0, null);
-
-
 		//}
 
 		public override void SetupOptions (string [] args)
@@ -93,6 +92,10 @@ namespace Baselines.Commands
 				Items = MyMediaLite.Helper.Utils.ReadPOIs (item_file);
 			}
 
+			if (!string.IsNullOrEmpty (user_file)) {
+				Console.WriteLine ("Loading users data");
+				Users = MyMediaLite.Helper.Utils.ReadUsers (user_file);
+			}
 		}
 
 		/// <summary>
@@ -142,8 +145,8 @@ namespace Baselines.Commands
 				Console.WriteLine ("Loading training data");
 				Feedback = ItemData.Read (path_training, user_mappings, item_mappings, true);
 				FeedbackRatings = CustomTimedRatingData.Read (path_training,
-															  user_mappings,
-															  item_mappings,
+				                                              user_mappings,
+				                                              item_mappings,
 															  TestRatingFileFormat.WITHOUT_RATINGS, true);
 			}
 
@@ -169,12 +172,13 @@ namespace Baselines.Commands
 			//if (Test == null || Test.Count == 0)
 			//	throw new Exception ("Test data can not be null");
 
-			((RankGeoFM)Recommender).Items = Items;
-			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
-			((RankGeoFM)Recommender).Feedback = Feedback;
-			((RankGeoFM)Recommender).Validation = TestFeedback;
-			//((RankGeoFM)Recommender).UserMapping = user_mappings;
-			//((RankGeoFM)Recommender).ItemMapping = item_mappings;
+			((RankGeoFM_Full)Recommender).Items = Items;
+			((RankGeoFM_Full)Recommender).Users = Users;
+			((RankGeoFM_Full)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFM_Full)Recommender).Feedback = Feedback;
+			((RankGeoFM_Full)Recommender).Validation = TestFeedback;
+			((RankGeoFM_Full)Recommender).UserMapping = user_mappings;
+			((RankGeoFM_Full)Recommender).ItemMapping = item_mappings;
 
 			TimeSpan t = Wrap.MeasureTime (delegate () {
 				Recommender.Train ();
@@ -186,9 +190,9 @@ namespace Baselines.Commands
 		{
 			Console.WriteLine ("Loading model...");
 			CreateModel (typeof (RankGeoFM));
-			((RankGeoFM)Recommender).Items = Items;
-			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
-			((RankGeoFM)Recommender).LoadModel ("");
+			((RankGeoFM_Full)Recommender).Items = Items;
+			((RankGeoFM_Full)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFM_Full)Recommender).LoadModel ("");
 
 			Console.WriteLine ("Evaluating");
 			var results = MyMediaLite.Eval.Items.Evaluate (Recommender, TestFeedback, Feedback, n: 500);

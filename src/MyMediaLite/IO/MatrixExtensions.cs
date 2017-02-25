@@ -140,7 +140,6 @@ namespace MyMediaLite.IO
 
 		}
 
-		///
 		static public void normalize (this alglib.sparsematrix M, IList<int> ids, int k)
 		{
 			foreach (int id in ids) {

@@ -21,14 +21,20 @@ using CsvHelper.Configuration;
 
 namespace MyMediaLite.Data
 {
+	///
 	public class POI
 	{
+		///
 		public int Id { get; set; }
+		///
 		public Coordinate Coordinates { get; set; }
+
+		///
 		public POI ()
 		{
 		}
 
+		///
 		public POI (int id, double lat, double lng)
 		{
 			Id = id;
@@ -36,8 +42,10 @@ namespace MyMediaLite.Data
 		}
 	}
 
+	///
 	public sealed class POIMap : CsvClassMap<POI>
 	{
+		///
 		public POIMap ()
 		{
 			Map (m => m.Id).Name ("uid");
@@ -45,8 +53,10 @@ namespace MyMediaLite.Data
 		}
 	}
 
+	///
 	public sealed class POICoordinateMap : CsvClassMap<Coordinate>
 	{
+		///
 		public POICoordinateMap ()
 		{
 			Map (m => m.Latitude).Index (1);

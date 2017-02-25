@@ -18,8 +18,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mono.Options;
 using MyMediaLite;
 using MyMediaLite.Data;
+using MyMediaLite.IO;
 using MyMediaLite.ItemRecommendation;
 
 namespace Baselines.Commands
@@ -27,13 +29,19 @@ namespace Baselines.Commands
 	public class WRMFCommand : Command
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
-		private static double [] REGULARIZATION = { 0.015, 0.03, 0.04, 0.05, 0.1 };
-		private static uint [] LATENT_FACTORS = { 50, 100 };
+		private static double [] REGULARIZATION = { 0.01, 0.015, 0.03, 0.04, 0.05, 0.07, 0.1 };
+		private static uint [] LATENT_FACTORS = { 5, 10, 20, 30, 50, 100 };
 
 		public WRMFCommand (string training, string test) : base (training, test, typeof (WRMF))
 		{
 			((WRMF)Recommender).NumFactors = 10;
 			((WRMF)Recommender).NumIter = 25;
+		}
+
+		protected override void Init ()
+		{
+			base.Init ();
+			((WRMF)Recommender).Feedback = Feedback;
 		}
 
 		public override void Tunning ()
@@ -44,11 +52,8 @@ namespace Baselines.Commands
 			if (Test == null || Test.Count == 0)
 				throw new Exception ("Test data can not be null");
 
-			//log.Info ("Tunning Regularization parameter");
-			//TunningRegularization ();
-
-			REGULARIZATION = new double[] { 0.015, 0.05 };
-			//LATENT_FACTORS = new uint[] { 1000 };
+			log.Info ("Tunning Regularization parameter");
+			TunningRegularization ();
 
 			log.Info ("Tunning Latent Factors parameter");
 			TunningLatentFactors ();
@@ -117,7 +122,7 @@ namespace Baselines.Commands
 
 					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
 					string filename = string.Format ("WRMF-n{0}-a{1}-r{2}", num_factors, alpha, regularization);
-					SaveModel (string.Format ("{0}.model", filename));
+					SaveModel (string.Format ("output/model/{0}.model", filename));
 					MyMediaLite.Helper.Utils.SaveRank (filename, result);
 
 					evaluate = false;
@@ -138,7 +143,33 @@ namespace Baselines.Commands
 
 		public override void Evaluate (string filename)
 		{
-			throw new NotImplementedException ();
+			if (!string.IsNullOrEmpty (filename)) {
+				Console.WriteLine ("Loading test data");
+				if (string.IsNullOrEmpty (path_test) || !path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
+					Test = LoadTest (filename);
+					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
+				}
+
+				var result = Evaluate ();
+				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				Log (((WRMF)Recommender).NumFactors, ((WRMF)Recommender).Regularization,
+					 ((WRMF)Recommender).Alpha, result.GetMetric ("MRR"));
+			}
+		}
+
+		public override void SetupOptions (string [] args)
+		{
+			base.SetupOptions (args);
+
+			var options = new OptionSet {
+				{ "num-factors=", v => ((WRMF)Recommender).NumFactors = uint.Parse(v)},
+				{ "regularization=", v => ((WRMF)Recommender).Regularization = double.Parse(v)}};
+
+			options.Parse (args);
+
+			log.Info ("Parameters configured!");
+			log.Info ("Num Factors: " + ((WRMF)Recommender).NumFactors);
+			log.Info ("Regularization: " + ((WRMF)Recommender).Regularization);
 		}
 	}
 }

@@ -85,10 +85,17 @@ namespace Baselines.Commands
 			return feedback;
 		}
 
-		protected IList<Checkin> LoadTest (string path)
+		protected virtual IList<Checkin> LoadTest (string path)
 		{
-			var checkins = MyMediaLite.Helper.Utils.ReadCheckins (path);
-			return checkins;
+			IList<Checkin> result = new List<Checkin> ();
+
+			try {
+				result = MyMediaLite.Helper.Utils.ReadCheckins (path);
+			} catch (Exception ex) {
+				Console.WriteLine (ex.Message);
+			}
+
+			return result;
 		}
 
 		public void LoadModel (string path)
@@ -148,6 +155,8 @@ namespace Baselines.Commands
 			var queryResult = new QueryResult (Recommender.GetType ().Name, Recommender.ToString ());
 			int i = 0;
 			double evaluation = 0.0f;
+			double precisions = 0.0f;
+			var positions = new int [] { 5, 10, 20, 50, 100, 500 };
 			foreach (Checkin item in Test) {
 				i++;
 
@@ -165,6 +174,7 @@ namespace Baselines.Commands
 			}
 
 			evaluation = evaluation / (i * 1.0f);
+
 			queryResult.AddMetric ("MRR", evaluation);
 			return queryResult;
 		}

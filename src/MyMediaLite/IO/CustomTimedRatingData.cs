@@ -86,6 +86,11 @@ namespace MyMediaLite.IO
 				int end1 = line.IndexOf ("]\"", StringComparison.InvariantCulture);
 				if (start1 != -1 && end1 != -1)
 					line = line.Remove (start1, (end1 + 3) - start1);
+
+				start1 = line.IndexOf ("[", StringComparison.InvariantCulture);
+				end1 = line.IndexOf ("]", StringComparison.InvariantCulture);
+				if (start1 != -1 && end1 != -1)
+					line = line.Remove (start1, (end1 + 2) - start1);
 				
 				string[] tokens = line.Split(Constants.SPLIT_CHARS);
 
@@ -135,7 +140,10 @@ namespace MyMediaLite.IO
 					ratings.Add (user_id, item_id, rating, time - offset);
 				} else {
 					DateTime time;
-					if (!DateTime.TryParse(date_string, out time))
+
+					if (!DateTime.TryParseExact (date_string, "yyyy-MM-ddTHH:mm:ss.fffZ",
+										 System.Globalization.CultureInfo.InvariantCulture,
+										 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out time))
 						time = DateTime.Now;
 					
 					ratings.Add (user_id, item_id, rating, time);

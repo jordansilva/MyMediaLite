@@ -21,6 +21,9 @@ using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
 using MyMediaLite;
 using MyMediaLite.Data;
+using System.IO;
+using MyMediaLite.IO;
+using Mono.Options;
 
 namespace Baselines.Commands
 {
@@ -38,6 +41,12 @@ namespace Baselines.Commands
 			((UserKNN)Recommender).Weighted = false;
 			((UserKNN)Recommender).Alpha = 0.5f;
 			((UserKNN)Recommender).Q = 1;
+		}
+
+		protected override void Init ()
+		{
+			base.Init ();
+			((UserKNN)Recommender).Feedback = Feedback;
 		}
 
 		public override void Tunning ()
@@ -64,33 +73,50 @@ namespace Baselines.Commands
 			}
 
 			mrr_tunning = mrr_tunning.OrderByDescending (x => x.Item2).ToList ();
-			K_PARAMETERS = mrr_tunning.Select (x => x.Item1).Distinct().Take (3).ToArray ();
+			K_PARAMETERS = mrr_tunning.Select (x => x.Item1).Distinct ().Take (3).ToArray ();
 			log.Debug (string.Format ("Bests K parameters: {0}", string.Join (",", K_PARAMETERS)));
 		}
 
 		QueryResult Train (uint k, float alpha = 0.5f, bool weighted = false)
 		{
-			bool evaluate = true;
+			TimeSpan t;
 			QueryResult result = null;
-			while (evaluate) {
-				try {
+			string model_filename = string.Format ("output/model/UserKNN-{0}.model", k);
+
+			try {
+
+				if (File.Exists (model_filename)) {
+					CreateModel (typeof (UserKNN));
+					((UserKNN)Recommender).Feedback = Feedback;
+					LoadModel (model_filename);
+					log.Info (string.Format ("Training K={0}", k));
+					Console.WriteLine ("Model loaded!");
+				} else {
 					CreateModel (typeof (UserKNN));
 					((UserKNN)Recommender).Feedback = Feedback;
 					((UserKNN)Recommender).K = k;
 					((UserKNN)Recommender).Alpha = alpha;
 					((UserKNN)Recommender).Weighted = weighted;
 
-					TimeSpan t = Wrap.MeasureTime (delegate () {
+					log.Info (string.Format ("Training K={0}", k));
+					t = Wrap.MeasureTime (delegate () {
 						Train ();
-						result = Evaluate ();
 					});
 
-					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
-					evaluate = false;
-				} catch (Exception ex) {
-					Console.WriteLine (ex.Message);
-					evaluate = true;
+					Console.WriteLine ("Training model: {0} seconds", t.TotalSeconds);
+					((UserKNN)Recommender).SaveModel (string.Format ("output/model/UserKNN-{0}.model", k));
 				}
+
+				t = Wrap.MeasureTime (delegate () {
+					result = Evaluate ();
+				});
+				Console.WriteLine ("Evaluate model: {0} seconds", t.TotalSeconds);
+
+				string filename = string.Format ("UserKNN-{0}-a{1}-w{2}", k, alpha, weighted);
+				MyMediaLite.Helper.Utils.SaveRank (filename, result);
+
+			} catch (Exception ex) {
+				Console.WriteLine (ex.Message);
 			}
 
 			return result;
@@ -103,7 +129,30 @@ namespace Baselines.Commands
 
 		public override void Evaluate (string filename)
 		{
-			throw new NotImplementedException ();
+			if (!string.IsNullOrEmpty (filename)) {
+				Console.WriteLine ("Loading test data");
+				if (string.IsNullOrEmpty (path_test) || !path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
+					Test = LoadTest (filename);
+					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
+				}
+
+				var result = Evaluate ();
+				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				Log (((UserKNN)Recommender).K, result.GetMetric ("MRR"));
+			}
+		}
+
+		public override void SetupOptions (string [] args)
+		{
+			base.SetupOptions (args);
+
+			var options = new OptionSet {
+				{ "k=", v => ((UserKNN)Recommender).K = uint.Parse(v)}};
+
+			options.Parse (args);
+
+			log.Info ("Parameters configured!");
+			log.Info ("K: " + ((UserKNN)Recommender).K);
 		}
 	}
 }

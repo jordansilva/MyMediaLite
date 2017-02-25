@@ -325,6 +325,11 @@ namespace MyMediaLite.DataType
 			return m.data.Max();
 		}
 
+		/// <summary>
+		/// Euclideans the norm.
+		/// </summary>
+		/// <returns>The norm.</returns>
+		/// <param name="matrix">Matrix.</param>
 		static public double EuclideanNorm (Matrix<double> matrix)
 		{
 			var values = new double[matrix.dim1];
@@ -332,6 +337,15 @@ namespace MyMediaLite.DataType
 				values[i] = VectorExtensions.EuclideanNorm (matrix.GetRow (i));
 			
 			return VectorExtensions.EuclideanNorm (values);
+		}
+
+		///
+		static public double EuclideanNorm (MathNet.Numerics.LinearAlgebra.Matrix<float> matrix) {
+			var values = MathNet.Numerics.LinearAlgebra.CreateVector.Dense<double>(matrix.RowCount);
+			for (int i = 0; i < matrix.RowCount; i++)
+				values [i] = matrix.Row (i).L2Norm();
+
+			return values.L2Norm ();
 		}
 	}
 }

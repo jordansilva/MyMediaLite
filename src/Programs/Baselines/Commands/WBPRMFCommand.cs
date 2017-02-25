@@ -21,6 +21,8 @@ using MyMediaLite.ItemRecommendation;
 using System.Collections.Generic;
 using MyMediaLite;
 using MyMediaLite.Data;
+using Mono.Options;
+using MyMediaLite.IO;
 
 namespace Baselines.Commands
 {
@@ -45,6 +47,12 @@ namespace Baselines.Commands
 			((WeightedBPRMF)Recommender).UniformUserSampling = true;
 			((WeightedBPRMF)Recommender).WithReplacement = false;
 			((WeightedBPRMF)Recommender).UpdateJ = true;
+		}
+
+		protected override void Init ()
+		{
+			base.Init ();
+			((WeightedBPRMF)Recommender).Feedback = Feedback;
 		}
 
 		public override void Tunning ()
@@ -146,7 +154,7 @@ namespace Baselines.Commands
 					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
 
 					string filename = string.Format ("WeightedBPRMF-n{0}-l{1}-r{2}", num_factors, learn_rate, regularization);
-					SaveModel (string.Format ("{0}.model", filename));
+					SaveModel (string.Format ("output/model/{0}.model", filename));
 					MyMediaLite.Helper.Utils.SaveRank (filename, result);
 
 					evaluate = false;
@@ -167,7 +175,38 @@ namespace Baselines.Commands
 
 		public override void Evaluate (string filename)
 		{
-			throw new NotImplementedException ();
+			if (!string.IsNullOrEmpty (filename)) {
+				if (string.IsNullOrEmpty (path_test) || !path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
+					Console.WriteLine ("Loading test data");
+					Test = LoadTest (filename);
+					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
+				}
+
+				var result = Evaluate ();
+				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				Log (((WeightedBPRMF)Recommender).NumFactors, ((WeightedBPRMF)Recommender).RegI,
+					 ((WeightedBPRMF)Recommender).LearnRate, result.GetMetric ("MRR"));
+			}
+		}
+
+		public override void SetupOptions (string [] args)
+		{
+			base.SetupOptions (args);
+
+			var options = new OptionSet {
+				{ "num-factors=", v => ((WeightedBPRMF)Recommender).NumFactors = uint.Parse(v)},
+				{ "regularization=", v => ((WeightedBPRMF)Recommender).RegU = float.Parse(v)},
+				{ "learn-rate=", v => ((WeightedBPRMF)Recommender).LearnRate = float.Parse(v)}};
+
+			options.Parse (args);
+
+			((WeightedBPRMF)Recommender).RegI = ((WeightedBPRMF)Recommender).RegU;
+			((WeightedBPRMF)Recommender).RegJ = ((WeightedBPRMF)Recommender).RegI * 0.1f;
+
+			log.Info ("Parameters configured!");
+			log.Info ("Num Factors: " + ((WeightedBPRMF)Recommender).NumFactors);
+			log.Info ("Regularization: " + ((WeightedBPRMF)Recommender).RegU);
+			log.Info ("Learn Rate: " + ((WeightedBPRMF)Recommender).LearnRate);
 		}
 	}
 }

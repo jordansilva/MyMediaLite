@@ -23,6 +23,7 @@ using MyMediaLite;
 using MyMediaLite.Data;
 using MyMediaLite.IO;
 using System.IO;
+using Mono.Options;
 
 namespace Baselines.Commands
 {
@@ -31,7 +32,7 @@ namespace Baselines.Commands
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
-		private static uint [] K_PARAMETERS = { 5, 500 };
+		private static uint [] K_PARAMETERS = { 5, 10, 20, 30, 50, 80, 100, 500, 1000 };
 
 		public ItemKNNCommand (string training, string test) : base (training, test, typeof (ItemKNN))
 		{
@@ -40,6 +41,12 @@ namespace Baselines.Commands
 			((ItemKNN)Recommender).Weighted = false;
 			((ItemKNN)Recommender).Alpha = 0.5f;
 			((ItemKNN)Recommender).Q = 1;
+		}
+
+		protected override void Init ()
+		{
+			base.Init ();
+			((ItemKNN)Recommender).Feedback = Feedback;
 		}
 
 		protected override IPosOnlyFeedback LoadPositiveFeedback (string path, ItemDataFileFormat file_format)
@@ -88,7 +95,7 @@ namespace Baselines.Commands
 		QueryResult [] Train (uint k, float alpha = 0.5f, bool weighted = false)
 		{
 			QueryResult [] result = new QueryResult [2];
-			string model_filename = string.Format ("ItemKNN-{0}.model", k);
+			string model_filename = string.Format ("output/model/ItemKNN-{0}.model", k);
 			TimeSpan t;
 
 			try {
@@ -113,7 +120,7 @@ namespace Baselines.Commands
 
 					Console.WriteLine ("Training model: {0} seconds", t.TotalSeconds);
 
-					((ItemKNN)Recommender).SaveModel (string.Format ("ItemKNN-{0}.model", k));
+					((ItemKNN)Recommender).SaveModel (string.Format ("output/model/ItemKNN-{0}.model", k));
 				}
 
 				t = Wrap.MeasureTime (delegate () {
@@ -149,7 +156,30 @@ namespace Baselines.Commands
 
 		public override void Evaluate (string filename)
 		{
-			throw new NotImplementedException ();
+			if (!string.IsNullOrEmpty (filename)) {
+				Console.WriteLine ("Loading test data");
+				if (string.IsNullOrEmpty (path_test) || !path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
+					Test = LoadTest (filename);
+					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
+				}
+
+				var result = Evaluate ();
+				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				Log (((ItemKNN)Recommender).K, result.GetMetric ("MRR"), "All");
+			}
+		}
+
+		public override void SetupOptions (string [] args)
+		{
+			base.SetupOptions (args);
+
+			var options = new OptionSet {
+				{ "k=", v => ((ItemKNN)Recommender).K = uint.Parse(v)}};
+
+			options.Parse (args);
+
+			log.Info ("Parameters configured!");
+			log.Info ("K: " + ((ItemKNN)Recommender).K);
 		}
 	}
 }

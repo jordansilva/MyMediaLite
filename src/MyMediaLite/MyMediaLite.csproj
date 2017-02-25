@@ -10,6 +10,7 @@
     <RootNamespace>MyMediaLite</RootNamespace>
     <AssemblyName>MyMediaLite</AssemblyName>
     <ReleaseVersion>3.06</ReleaseVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -39,24 +40,24 @@
     <Reference Include="System.Core" />
     <Reference Include="Mono.Posix" />
     <Reference Include="System.Numerics" />
-    <Reference Include="MySql.Data">
-      <HintPath>..\packages\MySql.Data.6.9.9\lib\net40\MySql.Data.dll</HintPath>
-    </Reference>
-    <Reference Include="C5">
-      <HintPath>..\packages\C5.2.4.5947.17249\lib\net40\C5.dll</HintPath>
-    </Reference>
-    <Reference Include="CsvHelper">
-      <HintPath>..\packages\CsvHelper.2.16.3.0\lib\net40\CsvHelper.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib" />
-    <Reference Include="Alglib2">
-      <HintPath>..\packages\alglib2.dll.3.10.3\lib\net40\Alglib2.dll</HintPath>
-    </Reference>
-    <Reference Include="MathNet.Numerics">
-      <HintPath>..\packages\MathNet.Numerics.3.13.1\lib\net40\MathNet.Numerics.dll</HintPath>
-    </Reference>
     <Reference Include="MathNet.Numerics.Data.Text">
       <HintPath>..\packages\MathNet.Numerics.Data.Text.3.2.0\lib\net40\MathNet.Numerics.Data.Text.dll</HintPath>
+    </Reference>
+    <Reference Include="C5">
+      <HintPath>..\packages\C5.2.4.5947.17249\lib\net45\C5.dll</HintPath>
+    </Reference>
+    <Reference Include="CsvHelper">
+      <HintPath>..\packages\CsvHelper.2.16.3.0\lib\net45\CsvHelper.dll</HintPath>
+    </Reference>
+    <Reference Include="MySql.Data">
+      <HintPath>..\packages\MySql.Data.6.9.9\lib\net45\MySql.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics">
+      <HintPath>..\packages\MathNet.Numerics.3.17.0\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
+    <Reference Include="Alglib2">
+      <HintPath>..\packages\alglib2.dll.3.10.3\lib\net40\Alglib2.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -273,6 +274,9 @@
     <Compile Include="RatingPrediction\RankGeoFM.cs" />
     <Compile Include="Helper\DistanceHelper.cs" />
     <Compile Include="RatingPrediction\RankGeoFMBackup.cs" />
+    <Compile Include="RatingPrediction\RankGeoFM_Full.cs" />
+    <Compile Include="RatingPrediction\RankGeoFM_modified.cs" />
+    <Compile Include="Data\User.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)/Microsoft.CSharp.targets" />
   <Import Project="MyMediaLite.targets" />

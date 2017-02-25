@@ -159,8 +159,15 @@ namespace MyMediaLite.Eval
 					if (correct_items.Count == num_candidates_for_this_user)
 						return;
 
-					var prediction = recommender.Recommend (user_id, candidate_items: candidate_items, n: n, ignore_items: ignore_items_for_this_user);
-					var prediction_list = (from t in prediction select t.Item1).ToArray ();
+					IList<Tuple<int, float>> prediction = null;
+					int [] prediction_list = null;
+					try {
+						prediction = recommender.Recommend (user_id, candidate_items: candidate_items, n: n, ignore_items: ignore_items_for_this_user);
+						prediction_list = (from t in prediction select t.Item1).ToArray ();
+
+					} catch (Exception ex) {
+						Console.Error.WriteLine (ex.Message);
+					}
 
 					int num_dropped_items = num_candidates_for_this_user - prediction.Count;
 					double auc = AUC.Compute (prediction_list, correct_items, num_dropped_items);

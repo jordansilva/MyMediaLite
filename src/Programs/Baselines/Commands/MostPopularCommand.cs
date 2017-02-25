@@ -19,6 +19,8 @@ using System;
 using MyMediaLite.ItemRecommendation;
 using MyMediaLite;
 using MyMediaLite.Data;
+using MyMediaLite.IO;
+using Mono.Options;
 
 namespace Baselines.Commands
 {
@@ -30,6 +32,12 @@ namespace Baselines.Commands
 		public MostPopularCommand (string training, string test) : base (training, test, typeof (MostPopular))
 		{
 			((MostPopular)Recommender).ByUser = false; //default
+		}
+
+		protected override void Init ()
+		{
+			base.Init ();
+			((MostPopular)Recommender).Feedback = Feedback;
 		}
 
 		public override void Tunning ()
@@ -66,7 +74,7 @@ namespace Baselines.Commands
 
 				Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
 				string filename = string.Format ("MostPopular-byUser{0}", by_user);
-				SaveModel (string.Format ("{0}.model", filename));
+				SaveModel (string.Format ("output/model/{0}.model", filename));
 				MyMediaLite.Helper.Utils.SaveRank (filename, result);
 
 			} catch (Exception ex) {
@@ -77,14 +85,37 @@ namespace Baselines.Commands
 			return result;
 		}
 
+		public override void Evaluate (string filename)
+		{
+			if (!string.IsNullOrEmpty (filename)) {
+				Console.WriteLine ("Loading test data");
+				if (!path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
+					Test = LoadTest (filename);
+					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
+				}
+
+				var result = Evaluate ();
+				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				Log ("default_user=" + ((MostPopular)Recommender).ByUser, result.GetMetric ("MRR"));
+			}
+		}
+
 		void Log (string desc, double metric)
 		{
 			log.Info (string.Format ("{0}\t\t-\t\tMRR = {1}", desc, metric));
 		}
 
-		public override void Evaluate (string filename)
+		public override void SetupOptions (string [] args)
 		{
-			throw new NotImplementedException ();
+			base.SetupOptions (args);
+
+			var options = new OptionSet {
+				{ "byuser=", v => ((MostPopular)Recommender).ByUser = bool.Parse(v)}};
+
+			options.Parse (args);
+
+			log.Info ("Parameters configured!");
+			log.Info ("By User: " + ((MostPopular)Recommender).ByUser);
 		}
 	}
 }

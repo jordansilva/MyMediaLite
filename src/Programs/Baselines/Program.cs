@@ -25,6 +25,7 @@ using MyMediaLite.Data;
 using MyMediaLite.Helper;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace Baselines
 {
@@ -57,11 +58,13 @@ namespace Baselines
 			//});
 			//Console.WriteLine ("Count {0}: {1} seconds", c, t.TotalSeconds);
 
+			Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo ("en-US");
+
 			var program = new Program ();
-			program.mFold = "fold_1";
-			program.mTraining = string.Format ("{0}/{1}/train_all.txt", DATASET_FOLDER, program.mFold);
-			program.mValidation = string.Format ("{0}/{1}/validation.txt", DATASET_FOLDER, program.mFold);
-			program.mTest = string.Format ("{0}/{1}/test.txt", DATASET_FOLDER, program.mFold);
+			//program.mFold = "fold_1";
+			//program.mTraining = string.Format ("{0}/{1}/train_all.txt", DATASET_FOLDER, program.mFold);
+			//program.mValidation = string.Format ("{0}/{1}/validation.txt", DATASET_FOLDER, program.mFold);
+			//program.mTest = string.Format ("{0}/{1}/test.txt", DATASET_FOLDER, program.mFold);
 
 			////MappingFoldHelper mapping = new MappingFoldHelper (program.mTraining, program.mValidation, program.mTest);
 
@@ -69,33 +72,38 @@ namespace Baselines
 			program.Run (args);
 
 #if DEBUG
-			Console.WriteLine ("Press enter to close...");
-			Console.ReadLine ();
+			//Console.WriteLine ("Press enter to close...");
+			//Console.ReadLine ();
 #endif
 		}
 
 		void Run (string [] args)
 		{
+			bool tunning = false;
+			string mLoadModel = null;
 			log.Info ("Running baselines");
-
 			var options = new OptionSet {
 				{ "training-file=",       v              => mTraining        = v },
+				{ "tunning",              v              => tunning          = v != null },
 				{ "test-file=",           v              => mValidation      = v },
+				{ "load-model=",          v              => mLoadModel       = v },
 				{ "recommender=",         v              => mMethod          = v }};
 
 			options.Parse (args);
-
 			//ReorganizeFiles ();
 
-			//mTraining = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/fold_1/train_all.txt";
-			//mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/fold_1/validation.txt";
-			//args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc/places.txt" };
-			//mMethod = "ItemKNN";
+			mTraining = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/training.txt";
+			mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/validation.txt";
+			args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/venues.txt", 
+			"--user-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/users.txt" };
+			////mMethod = "MostPopular";
+			//mLoadModel = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/Baselines/MostPopular/test/fold_1/model/MostPopular-byUserTrue.model";
 
-			mTraining = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/train_tensor.txt";
-			mValidation = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/test_tensor.txt";
-			args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/tensor_lat_lng.txt" };
+			//mTraining = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/train_tensor.txt";
+			//mValidation = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/test_tensor.txt";
+			//args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/tensor_lat_lng.txt" };
 			mMethod = "RankGeoFM";
+			tunning = true;
 
 			string methodName = string.Format ("Baselines.Commands.{0}Command", mMethod);
 			Type type = Type.GetType (methodName);
@@ -104,7 +112,23 @@ namespace Baselines
 
 			Command command = Create (type, mTraining, mValidation);
 			command.SetupOptions (args);
-			command.Tunning ();
+
+			if (tunning) {
+				Console.WriteLine ("Tunning algorithm");
+				command.Tunning ();
+			} else {
+				if (!string.IsNullOrEmpty (mLoadModel)) {
+					Console.WriteLine ("Loading model...");	
+					command.LoadModel (mLoadModel);
+				}
+				else {
+					Console.WriteLine ("Training algorithm");
+					command.Train ();
+					command.SaveModel (string.Format ("output/model/{0}.model", mMethod));
+				}
+
+				command.Evaluate (mValidation);
+			}
 
 			log.Info ("Process ending");
 		}
@@ -133,8 +157,10 @@ namespace Baselines
 				poisCoord.Add (item.Id, item.Coordinates);
 			}
 
-			ParallelOptions opts = new ParallelOptions { MaxDegreeOfParallelism = 
-				Convert.ToInt32 (Math.Ceiling ((Environment.ProcessorCount * 0.95) * 1.0)) };
+			ParallelOptions opts = new ParallelOptions {
+				MaxDegreeOfParallelism =
+				Convert.ToInt32 (Math.Ceiling ((Environment.ProcessorCount * 0.95) * 1.0))
+			};
 
 			//Parallel.For (1, 11, opts, index => {
 			//	if (index > 10)
