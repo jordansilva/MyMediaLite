@@ -36,6 +36,8 @@ namespace Baselines.Commands
 		IList<User> Users;
 		IMapping user_mappings;
 		IMapping item_mappings;
+		uint iterations = 1000;
+		bool isPaperVersion = true;
 
 		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM_Full))
 		{
@@ -83,52 +85,44 @@ namespace Baselines.Commands
 			string item_file = null;
 
 			var options = new OptionSet {
-				{ "user-file=",      v              => user_file        = v },
-				{ "item-file=",      v              => item_file      = v }};
+				{ "user-file=",      v              => user_file      = v },
+				{ "item-file=",      v              => item_file      = v },
+				{ "num-iterations=", v              => iterations     = uint.Parse(v)},
+				{ "matlab", 		 v              => isPaperVersion = v == null}
+			};
 			options.Parse (args);
 
 			if (!string.IsNullOrEmpty (item_file)) {
-				Console.WriteLine ("Loading items data");
+				Console.Write ("Loading items data...");
 				Items = MyMediaLite.Helper.Utils.ReadPOIs (item_file);
+				Console.WriteLine ("Loaded!");
 			}
 
 			if (!string.IsNullOrEmpty (user_file)) {
-				Console.WriteLine ("Loading users data");
+				Console.Write ("Loading users data... ");
 				Users = MyMediaLite.Helper.Utils.ReadUsers (user_file);
+				Console.WriteLine ("Loaded!");
 			}
-		}
 
-		/// <summary>
-		/// Initialize a matrix with normal distributed values with mean = 0.0 std = 0.01
-		/// </summary>
-		/// <param name="ids">Identifiers.</param>
-		/// <param name="M">Matrix to initialize</param>
-		private static void initMatrixNormal (int size, ref double [,] M, int K)
-		{
-			MathNet.Numerics.Distributions.Normal normalDist = new MathNet.Numerics.Distributions.Normal (0.0, 0.01);
-			for (int i = 0; i < size; i++) {
-				for (int j = 0; j < K; j++) {
-					M [i, j] = normalDist.Sample ();
-				}
-			}
-		}
+			((RankGeoFM_Full)Recommender).Items = Items;
+			((RankGeoFM_Full)Recommender).Users = Users;
+			((RankGeoFM_Full)Recommender).IsPaperVersion = isPaperVersion;
+			((RankGeoFM_Full)Recommender).MaxIterations = iterations;
 
-		/// <summary>
-		/// Initialize a matrix with normal distributed values with mean = 0.0 std = 0.01
-		/// </summary>
-		/// <param name="ids">Identifiers.</param>
-		/// <param name="M">Matrix to initialize</param>
-		private static void initMatrixNormal (IList<int> ids, ref double [,] M, ref Dictionary<int, int> mapper, int K)
-		{
-			MathNet.Numerics.Distributions.Normal normalDist = new MathNet.Numerics.Distributions.Normal (0.0, 0.01);
-			int i = 0;
-			foreach (int id in ids) {
-				for (int j = 0; j < K; j++) {
-					M [i, j] = normalDist.Sample ();
-					mapper [id] = i;
-				}
-				i++;
-			}
+			if (Feedback != null)
+				((RankGeoFM_Full)Recommender).Feedback = Feedback;
+				
+			if (FeedbackRatings != null)
+				((RankGeoFM_Full)Recommender).Ratings = FeedbackRatings;
+
+			if (TestFeedback != null)
+				((RankGeoFM_Full)Recommender).Validation = TestFeedback;
+
+			if (user_mappings != null)
+				((RankGeoFM_Full)Recommender).UserMapping = user_mappings;
+
+			if (item_mappings != null)
+				((RankGeoFM_Full)Recommender).ItemMapping = item_mappings;
 		}
 
 		protected override void Init ()
@@ -179,10 +173,10 @@ namespace Baselines.Commands
 			((RankGeoFM_Full)Recommender).Validation = TestFeedback;
 			((RankGeoFM_Full)Recommender).UserMapping = user_mappings;
 			((RankGeoFM_Full)Recommender).ItemMapping = item_mappings;
+			((RankGeoFM_Full)Recommender).IsPaperVersion = isPaperVersion;
+			((RankGeoFM_Full)Recommender).MaxIterations = iterations;
 
-			TimeSpan t = Wrap.MeasureTime (delegate () {
-				Recommender.Train ();
-			});
+			var t = Wrap.MeasureTime (Recommender.Train);
 			Console.WriteLine ("RankGeoFM: {0} seconds", t.TotalSeconds);
 		}
 
@@ -235,13 +229,28 @@ namespace Baselines.Commands
 		//	return result;
 		//}
 
-		//void Log (uint num_factors, float regularization, float learn_rate, double metric)
-		//{
-		//	log.Info (string.Format ("n={0}\tl={1}\tr={2}\t\t-\t\tMRR = {3}", num_factors,
-		//							 learn_rate, regularization, metric));
-		//}
+		void Log (double metric)
+		{
+			log.Info (string.Format ("RankGeoFM MRR={0}", metric));
+		}
 
 		public override void Evaluate (string filename)
+		{
+			if (!string.IsNullOrEmpty (filename)) {
+				if (Test == null) {
+					Console.WriteLine ("Loading test data");
+					Test = LoadTest (filename);
+					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
+				}
+
+				var result = Evaluate ();
+				MyMediaLite.Helper.Utils.SaveRank ("rankgeofm", result);
+				Log (result.GetMetric ("MRR"));
+			}
+		}
+
+
+		public override void SaveModel (string path)
 		{
 			throw new NotImplementedException ();
 		}

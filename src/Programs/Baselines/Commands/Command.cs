@@ -78,10 +78,8 @@ namespace Baselines.Commands
 
 		protected virtual IPosOnlyFeedback LoadPositiveFeedback (string path, ItemDataFileFormat file_format)
 		{
-			IPosOnlyFeedback feedback = ItemData.Read (path,
-													   new IdentityMapping (),
-													   new IdentityMapping (),
-													   file_format == ItemDataFileFormat.IGNORE_FIRST_LINE);
+			var feedback = ItemData.Read (path, new IdentityMapping (), new IdentityMapping (), 
+			                              file_format == ItemDataFileFormat.IGNORE_FIRST_LINE);
 			return feedback;
 		}
 
@@ -103,7 +101,7 @@ namespace Baselines.Commands
 			Recommender.LoadModel (path);
 		}
 
-		public void SaveModel (string path)
+		public virtual void SaveModel (string path)
 		{
 			Recommender.SaveModel (path);
 		}
@@ -135,7 +133,7 @@ namespace Baselines.Commands
 			var predictions = new List<Tuple<int, float>> ();
 
 			foreach (int item in items) {
-				Tuple<int, float> rating = Predict (user, item);
+				var rating = Predict (user, item);
 				predictions.Add (rating);
 			}
 
@@ -146,29 +144,22 @@ namespace Baselines.Commands
 
 		public Tuple<int, float> Predict (int user, int item)
 		{
-			float rating = Recommender.Predict (user, item);
+			var rating = Recommender.Predict (user, item);
 			return Tuple.Create (item, rating);
 		}
 
-		public QueryResult Evaluate (bool all = true)
+		public QueryResult Evaluate ()
 		{
 			var queryResult = new QueryResult (Recommender.GetType ().Name, Recommender.ToString ());
 			int i = 0;
 			double evaluation = 0.0f;
-			double precisions = 0.0f;
-			var positions = new int [] { 5, 10, 20, 50, 100, 500 };
 			foreach (Checkin item in Test) {
 				i++;
 
-				IList<Tuple<int, float>> ratings;
-				if (all)
-					ratings = Predict (item.User, item.CandidatesAll);
-				else
-					ratings = Predict (item.User, item.CandidatesChecked);
-
+				var ratings = Predict (item.User, item.Candidates);
 				queryResult.Add (i, ratings, string.Format ("u{0}", item.User));
 
-				List<int> itemsId = ratings.Select (x => x.Item1).ToList ();
+				var itemsId = ratings.Select (x => x.Item1).ToList ();
 				int [] rel = { item.Item };
 				evaluation += ReciprocalRank.Compute (itemsId, rel);
 			}
@@ -179,7 +170,8 @@ namespace Baselines.Commands
 			return queryResult;
 		}
 
-		public ItemRecommendationEvaluationResults EvaluateItems () {
+		public ItemRecommendationEvaluationResults EvaluateItems ()
+		{
 			return Items.Evaluate (Recommender, TestFeedback, Feedback, n: 500);
 		}
 

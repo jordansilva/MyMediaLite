@@ -66,6 +66,7 @@
     <Compile Include="Helper\FoldTest.cs" />
     <Compile Include="Commands\RankGeoFM2Command.cs" />
     <Compile Include="Commands\MostPopularCommand.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\MyMediaLite\MyMediaLite.csproj">

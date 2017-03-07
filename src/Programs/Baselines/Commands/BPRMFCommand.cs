@@ -190,7 +190,7 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				MyMediaLite.Helper.Utils.SaveRank ("bprmf", result);
 				Log (((MultiCoreBPRMF)Recommender).NumFactors, ((MultiCoreBPRMF)Recommender).RegI, 
 				     ((MultiCoreBPRMF)Recommender).LearnRate, result.GetMetric ("MRR"));
 			}
@@ -201,6 +201,7 @@ namespace Baselines.Commands
 			base.SetupOptions (args);
 
 			var options = new OptionSet {
+				{ "iter=", v => ((MultiCoreBPRMF)Recommender).NumIter = uint.Parse(v)},
 				{ "num-factors=", v => ((MultiCoreBPRMF)Recommender).NumFactors = uint.Parse(v)},
 				{ "regularization=", v => ((MultiCoreBPRMF)Recommender).RegU = float.Parse(v)},
 				{ "learn-rate=", v => ((MultiCoreBPRMF)Recommender).LearnRate = float.Parse(v)}};
@@ -214,6 +215,8 @@ namespace Baselines.Commands
 			log.Info ("Num Factors: " + ((MultiCoreBPRMF)Recommender).NumFactors);
 			log.Info ("Regularization: " + ((MultiCoreBPRMF)Recommender).RegU);
 			log.Info ("Learn Rate: " + ((MultiCoreBPRMF)Recommender).LearnRate);
+
+
 		}
 	}
 }

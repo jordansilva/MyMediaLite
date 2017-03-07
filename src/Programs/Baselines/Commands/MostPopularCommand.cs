@@ -69,7 +69,7 @@ namespace Baselines.Commands
 
 				TimeSpan t = Wrap.MeasureTime (delegate () {
 					Train ();
-					result = Evaluate (true);
+					result = Evaluate ();
 				});
 
 				Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
@@ -95,7 +95,7 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				MyMediaLite.Helper.Utils.SaveRank ("mostpopular", result);
 				Log ("default_user=" + ((MostPopular)Recommender).ByUser, result.GetMetric ("MRR"));
 			}
 		}

@@ -21,48 +21,54 @@ using System.Runtime.Serialization;
 
 namespace MyMediaLite.Data
 {
+	///
 	[Serializable]
 	public class Checkin : ISerializable
 	{
+		///
 		public int User { get; set; }
+		///
 		public int Item { get; set; }
+		///
 		public Coordinate Coordinates { get; set; }
+		///
 		public DateTime Date { get; set; }
-		public IList<int> CandidatesChecked { get; set; }
-		public IList<int> CandidatesAll { get; set; }
+		///
+		public IList<int> Candidates { get; set; }
 
+		///
 		public Checkin ()
 		{
 		}
 
+		///
 		public Checkin (SerializationInfo info, StreamingContext context)
 		{
 			User = (int)info.GetValue ("User", typeof (int));
 			Item = (int)info.GetValue ("Item", typeof (int));
 			Coordinates = (Coordinate)info.GetValue ("Coordinates", typeof (Coordinate));
 			Date = (DateTime)info.GetValue ("Date", typeof (DateTime));
-			CandidatesChecked = (List<int>)info.GetValue ("CandidatesChecked", typeof (List<int>));
-			CandidatesAll = (List<int>)info.GetValue ("CandidatesAll", typeof (List<int>));
+			Candidates = (List<int>)info.GetValue ("Candidates", typeof (List<int>));
 		}
 
-		public Checkin (int user, int item, float lat, float lng, DateTime date, IList<int> candidates_checked, IList<int> candidates_all)
+		///
+		public Checkin (int user, int item, float lat, float lng, DateTime date, IList<int> candidates)
 		{
 			User = user;
 			Item = item;
 			Coordinates = new Coordinate (lat, lng);
 			Date = date;
-			CandidatesChecked = candidates_checked;
-			CandidatesAll = candidates_all;
+			Candidates = candidates;
 		}
 
+		///
 		public void GetObjectData (SerializationInfo info, StreamingContext context)
 		{
 			info.AddValue ("User", User);
 			info.AddValue ("Item", Item);
 			info.AddValue ("Coordinates", Coordinates);
 			info.AddValue ("Date", Date);
-			info.AddValue ("CandidatesChecked", CandidatesChecked);
-			info.AddValue ("CandidatesAll", CandidatesAll);
+			info.AddValue ("Candidates", Candidates);
 		}
 	}
 

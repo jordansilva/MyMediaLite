@@ -151,7 +151,7 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				MyMediaLite.Helper.Utils.SaveRank ("wrmf", result);
 				Log (((WRMF)Recommender).NumFactors, ((WRMF)Recommender).Regularization,
 					 ((WRMF)Recommender).Alpha, result.GetMetric ("MRR"));
 			}

@@ -86,7 +86,7 @@ namespace MyMediaLite.Helper
 				File.Delete (binary_filename);
 
 			TextWriter writer = new StreamWriter (filename, true, System.Text.Encoding.UTF8);
-			writer.WriteLine ("user,venue,point,time,cand_checked,cand_all");
+			writer.WriteLine ("user,venue,point,time,candidates");
 
 			foreach (var item in checkins) {
 				writer.WriteLine ("{0},{1},\"{2}\",{3},\"[{4}]\",\"[{5}]\"", 
@@ -94,8 +94,7 @@ namespace MyMediaLite.Helper
 				                  item.Item,
 				                  item.Coordinates,
 				                  item.Date.ToUniversalTime().ToString ("O"),
-				                  string.Join(",", item.CandidatesChecked),
-				                  string.Join (",", item.CandidatesAll));
+				                  string.Join(",", item.Candidates));
 			}
 
 			writer.Close ();

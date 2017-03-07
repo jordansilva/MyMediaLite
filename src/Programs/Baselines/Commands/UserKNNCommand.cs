@@ -137,7 +137,7 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				MyMediaLite.Helper.Utils.SaveRank ("userknn", result);
 				Log (((UserKNN)Recommender).K, result.GetMetric ("MRR"));
 			}
 		}

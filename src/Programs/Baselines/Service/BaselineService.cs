@@ -90,7 +90,7 @@ namespace Baselines.Service
 			double evaluation = 0.0f;
 			foreach (Checkin item in Test) {
 				i++;
-				IList<Tuple<int, float>> ratings = baseline.Predict (item.User, item.CandidatesAll);
+				IList<Tuple<int, float>> ratings = baseline.Predict (item.User, item.Candidates);
 				queryResult.Add (i, ratings, string.Format ("u{0}", item.User));
 
 

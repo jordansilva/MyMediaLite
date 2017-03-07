@@ -21,13 +21,16 @@ using MyMediaLite.Data;
 
 namespace MyMediaLite.Helper
 {
+	///
 	public class CoordinatorConverter : CsvHelper.TypeConversion.EnumerableConverter
 	{
+		///
 		public override bool CanConvertFrom (Type type)
 		{
 			return type == typeof (String) || type == typeof (string);
 		}
 
+		///
 		public override object ConvertFromString (CsvHelper.TypeConversion.TypeConverterOptions options, string text)
 		{
 			try {

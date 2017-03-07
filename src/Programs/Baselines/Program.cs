@@ -92,18 +92,18 @@ namespace Baselines
 			options.Parse (args);
 			//ReorganizeFiles ();
 
-			mTraining = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/training.txt";
-			mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/validation.txt";
-			args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/venues.txt", 
-			"--user-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/users.txt" };
-			////mMethod = "MostPopular";
-			//mLoadModel = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/Baselines/MostPopular/test/fold_1/model/MostPopular-byUserTrue.model";
+			//mTraining = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/training.txt";
+			//mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/test.txt";
+			//args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/venues.txt", 
+				//"--user-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/users.txt" };
+			//mMethod = "MostPopular";
+			//mLoadModel = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/best_iteration/best_iteration";
 
 			//mTraining = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/train_tensor.txt";
 			//mValidation = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/test_tensor.txt";
 			//args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/tensor_lat_lng.txt" };
-			mMethod = "RankGeoFM";
-			tunning = true;
+			//mMethod = "RankGeoFM";
+			//tunning = false;
 
 			string methodName = string.Format ("Baselines.Commands.{0}Command", mMethod);
 			Type type = Type.GetType (methodName);
@@ -124,7 +124,14 @@ namespace Baselines
 				else {
 					Console.WriteLine ("Training algorithm");
 					command.Train ();
-					command.SaveModel (string.Format ("output/model/{0}.model", mMethod));
+					var filename = string.Format ("output/model/{0}.model", mMethod);
+					MyMediaLite.Helper.Utils.CreateFile (filename);
+
+					try {
+						command.SaveModel (filename);
+					} catch (Exception ex) {
+						Console.WriteLine (ex.Message);
+					}
 				}
 
 				command.Evaluate (mValidation);
@@ -189,23 +196,14 @@ namespace Baselines
 			Console.WriteLine ("Computing distance...");
 			foreach (var item in checkins) {
 				var candidatesChecked = new Dictionary<int, double> ();
-				foreach (var item2 in item.CandidatesChecked) {
+				foreach (var item2 in item.Candidates) {
 					var coord = pois [item2];
 					var distance = DistanceHelper.Distance (item.Coordinates.Latitude, item.Coordinates.Longitude,
 											 coord.Latitude, coord.Longitude);
 					candidatesChecked.Add (item2, distance);
 				}
 
-				var candidatesAll = new Dictionary<int, double> ();
-				foreach (var item2 in item.CandidatesAll) {
-					var coord = pois [item2];
-					var distance = DistanceHelper.Distance (item.Coordinates.Latitude, item.Coordinates.Longitude,
-											 coord.Latitude, coord.Longitude);
-					candidatesAll.Add (item2, distance);
-				}
-
-				item.CandidatesChecked = candidatesChecked.OrderBy (x => x.Value).Select (x => x.Key).ToList ();
-				item.CandidatesAll = candidatesAll.OrderBy (x => x.Value).Select (x => x.Key).ToList ();
+				item.Candidates = candidatesChecked.OrderBy (x => x.Value).Select (x => x.Key).ToList ();
 				checkinsNew.Add (item);
 			}
 

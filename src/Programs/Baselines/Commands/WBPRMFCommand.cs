@@ -183,7 +183,7 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				MyMediaLite.Helper.Utils.SaveRank ("wbprmf", result);
 				Log (((WeightedBPRMF)Recommender).NumFactors, ((WeightedBPRMF)Recommender).RegI,
 					 ((WeightedBPRMF)Recommender).LearnRate, result.GetMetric ("MRR"));
 			}

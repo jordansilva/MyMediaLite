@@ -164,7 +164,7 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("ranked-items.rank", result);
+				MyMediaLite.Helper.Utils.SaveRank ("itemknn", result);
 				Log (((ItemKNN)Recommender).K, result.GetMetric ("MRR"), "All");
 			}
 		}
