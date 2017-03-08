@@ -271,12 +271,10 @@
     <Compile Include="Data\POI.cs" />
     <Compile Include="Helper\CheckinMap.cs" />
     <Compile Include="Helper\CoordinatorConverter.cs" />
-    <Compile Include="RatingPrediction\RankGeoFM.cs" />
     <Compile Include="Helper\DistanceHelper.cs" />
-    <Compile Include="RatingPrediction\RankGeoFMBackup.cs" />
-    <Compile Include="RatingPrediction\RankGeoFM_Full.cs" />
-    <Compile Include="RatingPrediction\RankGeoFM_modified.cs" />
     <Compile Include="Data\User.cs" />
+    <Compile Include="RatingPrediction\RankGeoFM.cs" />
+    <Compile Include="RatingPrediction\WPOI.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)/Microsoft.CSharp.targets" />
   <Import Project="MyMediaLite.targets" />

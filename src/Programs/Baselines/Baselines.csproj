@@ -64,7 +64,6 @@
     <Compile Include="Commands\ItemKNNCommand.cs" />
     <Compile Include="Helper\MappingFoldHelper.cs" />
     <Compile Include="Helper\FoldTest.cs" />
-    <Compile Include="Commands\RankGeoFM2Command.cs" />
     <Compile Include="Commands\MostPopularCommand.cs" />
     <Compile Include="GlobalSuppressions.cs" />
   </ItemGroup>

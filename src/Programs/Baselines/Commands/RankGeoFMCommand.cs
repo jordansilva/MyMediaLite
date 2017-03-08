@@ -39,7 +39,7 @@ namespace Baselines.Commands
 		uint iterations = 1000;
 		bool isPaperVersion = true;
 
-		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM_Full))
+		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM))
 		{
 			path_training = training;
 			path_test = test;
@@ -88,7 +88,7 @@ namespace Baselines.Commands
 				{ "user-file=",      v              => user_file      = v },
 				{ "item-file=",      v              => item_file      = v },
 				{ "num-iterations=", v              => iterations     = uint.Parse(v)},
-				{ "matlab", 		 v              => isPaperVersion = v == null}
+				{ "matlab",          v              => isPaperVersion = v == null}
 			};
 			options.Parse (args);
 
@@ -104,25 +104,25 @@ namespace Baselines.Commands
 				Console.WriteLine ("Loaded!");
 			}
 
-			((RankGeoFM_Full)Recommender).Items = Items;
-			((RankGeoFM_Full)Recommender).Users = Users;
-			((RankGeoFM_Full)Recommender).IsPaperVersion = isPaperVersion;
-			((RankGeoFM_Full)Recommender).MaxIterations = iterations;
+			((RankGeoFM)Recommender).Items = Items;
+			((RankGeoFM)Recommender).Users = Users;
+			((RankGeoFM)Recommender).IsPaperVersion = isPaperVersion;
+			((RankGeoFM)Recommender).MaxIterations = iterations;
 
 			if (Feedback != null)
-				((RankGeoFM_Full)Recommender).Feedback = Feedback;
-				
+				((RankGeoFM)Recommender).Feedback = Feedback;
+
 			if (FeedbackRatings != null)
-				((RankGeoFM_Full)Recommender).Ratings = FeedbackRatings;
+				((RankGeoFM)Recommender).Ratings = FeedbackRatings;
 
 			if (TestFeedback != null)
-				((RankGeoFM_Full)Recommender).Validation = TestFeedback;
+				((RankGeoFM)Recommender).Validation = TestFeedback;
 
 			if (user_mappings != null)
-				((RankGeoFM_Full)Recommender).UserMapping = user_mappings;
+				((RankGeoFM)Recommender).UserMapping = user_mappings;
 
 			if (item_mappings != null)
-				((RankGeoFM_Full)Recommender).ItemMapping = item_mappings;
+				((RankGeoFM)Recommender).ItemMapping = item_mappings;
 		}
 
 		protected override void Init ()
@@ -139,8 +139,8 @@ namespace Baselines.Commands
 				Console.WriteLine ("Loading training data");
 				Feedback = ItemData.Read (path_training, user_mappings, item_mappings, true);
 				FeedbackRatings = CustomTimedRatingData.Read (path_training,
-				                                              user_mappings,
-				                                              item_mappings,
+															  user_mappings,
+															  item_mappings,
 															  TestRatingFileFormat.WITHOUT_RATINGS, true);
 			}
 
@@ -153,28 +153,28 @@ namespace Baselines.Commands
 			item_mappings.SaveMapping ("item.mapping");
 
 			//if (!string.IsNullOrEmpty (path_test)) {
-			//	Console.WriteLine ("Loading test data");
-			//	Test = LoadTest (path_test);
+			//  Console.WriteLine ("Loading test data");
+			//  Test = LoadTest (path_test);
 			//}
 		}
 
 		public override void Tunning ()
 		{
 			//if (FeedbackRatings == null || FeedbackRatings.Count == 0)
-			//	throw new Exception ("Training data can not be null");
+			//  throw new Exception ("Training data can not be null");
 
 			//if (Test == null || Test.Count == 0)
-			//	throw new Exception ("Test data can not be null");
+			//  throw new Exception ("Test data can not be null");
 
-			((RankGeoFM_Full)Recommender).Items = Items;
-			((RankGeoFM_Full)Recommender).Users = Users;
-			((RankGeoFM_Full)Recommender).Ratings = FeedbackRatings;
-			((RankGeoFM_Full)Recommender).Feedback = Feedback;
-			((RankGeoFM_Full)Recommender).Validation = TestFeedback;
-			((RankGeoFM_Full)Recommender).UserMapping = user_mappings;
-			((RankGeoFM_Full)Recommender).ItemMapping = item_mappings;
-			((RankGeoFM_Full)Recommender).IsPaperVersion = isPaperVersion;
-			((RankGeoFM_Full)Recommender).MaxIterations = iterations;
+			((RankGeoFM)Recommender).Items = Items;
+			((RankGeoFM)Recommender).Users = Users;
+			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFM)Recommender).Feedback = Feedback;
+			((RankGeoFM)Recommender).Validation = TestFeedback;
+			((RankGeoFM)Recommender).UserMapping = user_mappings;
+			((RankGeoFM)Recommender).ItemMapping = item_mappings;
+			((RankGeoFM)Recommender).IsPaperVersion = isPaperVersion;
+			((RankGeoFM)Recommender).MaxIterations = iterations;
 
 			var t = Wrap.MeasureTime (Recommender.Train);
 			Console.WriteLine ("RankGeoFM: {0} seconds", t.TotalSeconds);
@@ -184,9 +184,9 @@ namespace Baselines.Commands
 		{
 			Console.WriteLine ("Loading model...");
 			CreateModel (typeof (RankGeoFM));
-			((RankGeoFM_Full)Recommender).Items = Items;
-			((RankGeoFM_Full)Recommender).Ratings = FeedbackRatings;
-			((RankGeoFM_Full)Recommender).LoadModel ("");
+			((RankGeoFM)Recommender).Items = Items;
+			((RankGeoFM)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFM)Recommender).LoadModel ("");
 
 			Console.WriteLine ("Evaluating");
 			var results = MyMediaLite.Eval.Items.Evaluate (Recommender, TestFeedback, Feedback, n: 500);
@@ -202,31 +202,31 @@ namespace Baselines.Commands
 
 		//QueryResult Train (uint num_factors, float learn_rate, float regularization)
 		//{
-		//	bool evaluate = true;
-		//	QueryResult result = null;
-		//	while (evaluate) {
-		//		try {
-		//			CreateModel (typeof (WeatherContextAwareItemRecommender));
-		//			((WeatherContextAwareItemRecommender)Recommender).weather_aware = false;
-		//			((WeatherContextAwareItemRecommender)Recommender).max_iter = 7000;
-		//			((WeatherContextAwareItemRecommender)Recommender).rangeSize = 10;
-		//			((WeatherContextAwareItemRecommender)Recommender).evaluation_at = 20;
-		//			((WeatherContextAwareItemRecommender)Recommender).Ratings = FeedbackRatings;
-		//			((WeatherContextAwareItemRecommender)Recommender).Items = Items;
-		//			TimeSpan t = Wrap.MeasureTime (delegate () {
-		//				Train ();
-		//				result = Evaluate ();
-		//			});
+		//  bool evaluate = true;
+		//  QueryResult result = null;
+		//  while (evaluate) {
+		//      try {
+		//          CreateModel (typeof (WeatherContextAwareItemRecommender));
+		//          ((WeatherContextAwareItemRecommender)Recommender).weather_aware = false;
+		//          ((WeatherContextAwareItemRecommender)Recommender).max_iter = 7000;
+		//          ((WeatherContextAwareItemRecommender)Recommender).rangeSize = 10;
+		//          ((WeatherContextAwareItemRecommender)Recommender).evaluation_at = 20;
+		//          ((WeatherContextAwareItemRecommender)Recommender).Ratings = FeedbackRatings;
+		//          ((WeatherContextAwareItemRecommender)Recommender).Items = Items;
+		//          TimeSpan t = Wrap.MeasureTime (delegate () {
+		//              Train ();
+		//              result = Evaluate ();
+		//          });
 
-		//			Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
-		//			evaluate = false;
-		//		} catch (Exception ex) {
-		//			Console.WriteLine (ex.Message);
-		//			evaluate = true;
-		//		}
-		//	}
+		//          Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
+		//          evaluate = false;
+		//      } catch (Exception ex) {
+		//          Console.WriteLine (ex.Message);
+		//          evaluate = true;
+		//      }
+		//  }
 
-		//	return result;
+		//  return result;
 		//}
 
 		void Log (double metric)
