@@ -35,6 +35,8 @@ namespace Baselines.Commands
 		public IPosOnlyFeedback TestFeedback { get; set; }
 		public IList<Checkin> Test { get; set; }
 		public Recommender Recommender { get; set; }
+		public IMapping user_mapping;
+		public IMapping item_mapping;
 
 		public Command () { }
 
@@ -47,6 +49,9 @@ namespace Baselines.Commands
 		{
 			path_training = training;
 			path_test = test;
+
+			user_mapping = new IdentityMapping ();
+			item_mapping = new IdentityMapping ();
 
 			Init ();
 		}
@@ -78,7 +83,7 @@ namespace Baselines.Commands
 
 		protected virtual IPosOnlyFeedback LoadPositiveFeedback (string path, ItemDataFileFormat file_format)
 		{
-			var feedback = ItemData.Read (path, new IdentityMapping (), new IdentityMapping (), 
+			var feedback = ItemData.Read (path, user_mapping, item_mapping,
 			                              file_format == ItemDataFileFormat.IGNORE_FIRST_LINE);
 			return feedback;
 		}
@@ -109,6 +114,8 @@ namespace Baselines.Commands
 		public void Train ()
 		{
 			MyMediaLite.Random.Seed = 34;
+			Console.WriteLine (Recommender);
+			Console.WriteLine(Feedback.Statistics (TestFeedback));
 			Recommender.Train ();
 		}
 
@@ -150,6 +157,61 @@ namespace Baselines.Commands
 
 		public QueryResult Evaluate ()
 		{
+			Console.WriteLine ("Evaluating model...");
+			if (Test != null && Test.Count > 0) {
+				Console.WriteLine ("Evaluate Rank with candidates");
+				return EvaluateRankCandidates ();
+			} else {
+				Console.WriteLine ("Evaluate Rank with all items");
+				return EvaluateRank ();
+			}
+		}
+
+		QueryResult EvaluateRank ()
+		{
+			var queryResult = new QueryResult (Recommender.GetType ().Name, Recommender.ToString ());
+
+			int i = 0;
+			double evaluation = 0.0f;
+			double precisionAt5 = 0.0f;
+			double precisionAt10 = 0.0f;
+			double precisionAt50 = 0.0f;
+			double precisionAt100 = 0.0f;
+			var userMatrix = TestFeedback.UserMatrix;
+
+			var numberOfEntities = (item_mapping.NumberOfEntities > 1) ? item_mapping.NumberOfEntities : TestFeedback.MaxItemID;
+
+			foreach (var user in TestFeedback.AllUsers) {
+				i++;
+
+				var items = Recommender.Recommend (user, numberOfEntities, candidate_items: Enumerable.Range (1, numberOfEntities).ToList ());
+				queryResult.Add (i, items);
+
+				var itemsId = items.Select (x => x.Item1).ToList ();
+				evaluation += ReciprocalRank.Compute (itemsId, userMatrix [user]);
+				var precisions = PrecisionAndRecall.PrecisionAt (itemsId, userMatrix [user], new int[] { 5, 10, 50, 100 });
+				precisionAt5 += precisions[5];
+				precisionAt10 += precisions [10];
+				precisionAt50 += precisions [50];
+				precisionAt100 += precisions [100];
+			}
+
+			evaluation = evaluation / (i * 1.0f);
+			precisionAt5 = precisionAt5 / (i * 1.0f);
+			precisionAt10 = precisionAt10 / (i * 1.0f);
+			precisionAt50 = precisionAt50 / (i * 1.0f);
+			precisionAt100 = precisionAt100 / (i * 1.0f);
+
+			queryResult.AddMetric ("MRR", evaluation);
+			queryResult.AddMetric ("P@5", precisionAt5);
+			queryResult.AddMetric ("P@10", precisionAt10);
+			queryResult.AddMetric ("P@50", precisionAt50);
+			queryResult.AddMetric ("P@100", precisionAt100);
+			return queryResult;
+		}
+
+		QueryResult EvaluateRankCandidates ()
+		{
 			var queryResult = new QueryResult (Recommender.GetType ().Name, Recommender.ToString ());
 			int i = 0;
 			double evaluation = 0.0f;
@@ -157,7 +219,7 @@ namespace Baselines.Commands
 				i++;
 
 				var ratings = Predict (item.User, item.Candidates);
-				queryResult.Add (i, ratings, string.Format ("u{0}", item.User));
+				queryResult.Add (i, item.User, item.Item, ratings);
 
 				var itemsId = ratings.Select (x => x.Item1).ToList ();
 				int [] rel = { item.Item };

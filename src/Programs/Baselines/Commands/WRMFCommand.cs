@@ -154,6 +154,9 @@ namespace Baselines.Commands
 				MyMediaLite.Helper.Utils.SaveRank ("wrmf", result);
 				Log (((WRMF)Recommender).NumFactors, ((WRMF)Recommender).Regularization,
 					 ((WRMF)Recommender).Alpha, result.GetMetric ("MRR"));
+
+				foreach (var metric in result.Metrics)
+					log.Info (string.Format ("{0} = {1}", metric.Item1, metric.Item2));
 			}
 		}
 

@@ -38,11 +38,12 @@
     <Reference Include="mscorlib" />
     <Reference Include="System.Core" />
     <Reference Include="log4net">
-      <HintPath>..\..\packages\log4net.2.0.5\lib\net45-full\log4net.dll</HintPath>
+      <HintPath>..\..\packages\log4net.2.0.8\lib\net45-full\log4net.dll</HintPath>
     </Reference>
     <Reference Include="MathNet.Numerics">
-      <HintPath>..\..\packages\MathNet.Numerics.3.13.1\lib\net40\MathNet.Numerics.dll</HintPath>
+      <HintPath>..\..\packages\MathNet.Numerics.3.17.0\lib\net40\MathNet.Numerics.dll</HintPath>
     </Reference>
+    <Reference Include="System.Data" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
@@ -66,6 +67,8 @@
     <Compile Include="Helper\FoldTest.cs" />
     <Compile Include="Commands\MostPopularCommand.cs" />
     <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="Commands\RankGeoFMKNNCommand.cs" />
+    <Compile Include="Commands\xQuADCommand.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\MyMediaLite\MyMediaLite.csproj">

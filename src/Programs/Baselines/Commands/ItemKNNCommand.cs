@@ -166,6 +166,9 @@ namespace Baselines.Commands
 				var result = Evaluate ();
 				MyMediaLite.Helper.Utils.SaveRank ("itemknn", result);
 				Log (((ItemKNN)Recommender).K, result.GetMetric ("MRR"), "All");
+
+				foreach (var metric in result.Metrics)
+					log.Info (string.Format ("{0} = {1}", metric.Item1, metric.Item2));
 			}
 		}
 

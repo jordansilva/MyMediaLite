@@ -18,9 +18,7 @@
 using System;
 using System.Collections.Generic;
 using Baselines.Commands;
-using Baselines.Helper;
 using Mono.Options;
-using MyMediaLite;
 using MyMediaLite.Data;
 using MyMediaLite.Helper;
 using System.Linq;
@@ -68,7 +66,6 @@ namespace Baselines
 
 			////MappingFoldHelper mapping = new MappingFoldHelper (program.mTraining, program.mValidation, program.mTest);
 
-
 			program.Run (args);
 
 #if DEBUG
@@ -92,18 +89,22 @@ namespace Baselines
 			options.Parse (args);
 			//ReorganizeFiles ();
 
-			//mTraining = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/training.txt";
-			//mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/test.txt";
-			//args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/venues.txt", 
-				//"--user-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/users.txt" };
-			//mMethod = "MostPopular";
-			//mLoadModel = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/best_iteration/best_iteration";
+#if DEBUG
+			string [] args_data = ConfigureDataset (1);
+			string args_algo = ConfigureAlgorithm (Algorithms.xQuAD);
 
-			//mTraining = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/train_tensor.txt";
-			//mValidation = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/test_tensor.txt";
-			//args = new string[] { "--item-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/SG/tensor_lat_lng.txt" };
-			//mMethod = "RankGeoFM";
-			//tunning = false;
+			var list_args = new List<string> ();
+			if (args_data != null)
+				list_args.AddRange (args_data);
+
+			if (args_algo != null)
+				list_args.AddRange (args_algo.Split(' '));
+
+			args = list_args.ToArray ();
+			tunning = true;
+#endif
+
+			//mLoadModel = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/best_iteration/best_iteration";
 
 			string methodName = string.Format ("Baselines.Commands.{0}Command", mMethod);
 			Type type = Type.GetType (methodName);
@@ -118,19 +119,20 @@ namespace Baselines
 				command.Tunning ();
 			} else {
 				if (!string.IsNullOrEmpty (mLoadModel)) {
-					Console.WriteLine ("Loading model...");	
+					Console.WriteLine ("Loading model...");
 					command.LoadModel (mLoadModel);
-				}
-				else {
+				} else {
 					Console.WriteLine ("Training algorithm");
 					command.Train ();
 					var filename = string.Format ("output/model/{0}.model", mMethod);
-					MyMediaLite.Helper.Utils.CreateFile (filename);
+					Utils.CreateFile (filename);
 
-					try {
-						command.SaveModel (filename);
-					} catch (Exception ex) {
-						Console.WriteLine (ex.Message);
+					if (!methodName.Contains ("RankGeoFM")) {
+						try {
+							command.SaveModel (filename);
+						} catch (Exception ex) {
+							Console.WriteLine (ex.Message);
+						}
 					}
 				}
 
@@ -151,6 +153,75 @@ namespace Baselines
 			command.LoadModel (path);
 			return command;
 		}
+
+		string [] ConfigureDataset (int dataset)
+		{
+			switch (dataset) {
+			case 2:
+				//SG
+				mTraining = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/parallel/SG_NEW/train_tensor.txt";
+				mValidation = "/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/parallel/SG_NEW/test_tensor.txt";
+				return new string [] { "--item-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/parallel/SG_NEW/tensor_lat_lng.txt",
+				"--user-file=/Volumes/Tyr/Projects/UFMG/Baselines/Jordan/MyMediaLite-Research/src/Programs/Baselines/bin/parallel/SG_NEW/users.txt"};
+			case 1:
+			default:
+				//Reduced NYC
+				mTraining = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/training.txt";
+				mValidation = "/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/fold_1/test.txt";
+				return new string [] { "--item-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/venues.txt", "--user-file=/Volumes/Tyr/Projects/UFMG/Datasets/Ours/nyc-reduced/users.txt" };
+			}
+		}
+
+		public enum Algorithms
+		{
+			GEO = 0,
+			BPRMF = 1,
+			WRMF = 2,
+			WBPRMF = 3,
+			ItemKNN = 4,
+			UserKNN = 5,
+			MostPopular = 6,
+			MostPopular_False = 7,
+			RankGeoFM = 8,
+			WPOI = 9,
+			xQuAD = 10
+		}
+
+		string ConfigureAlgorithm (Algorithms algo)
+		{
+			switch (algo) {
+			case Algorithms.BPRMF:
+				mMethod = "BPRMF";
+				return "--num-factors=100 --learn-rate=0.1 --regularization=0.03";
+			case Algorithms.WRMF:
+				mMethod = "WRMF";
+				return "--num-factors=5 --regularization=0.1";
+			case Algorithms.WBPRMF:
+				mMethod = "WBPRMF";
+				return "--num-factors=1000 --regularization=0.1 --learn-rate=0.1";
+			case Algorithms.ItemKNN:
+				mMethod = "ItemKNN";
+				return "--k=80";
+			case Algorithms.UserKNN:
+				mMethod = "UserKNN";
+				return "--k=1000";
+			case Algorithms.MostPopular:
+				mMethod = "MostPopular";
+				return "--byuser=true";
+			case Algorithms.MostPopular_False:
+				mMethod = "MostPopular";
+				return "--byuser=true";
+			case Algorithms.RankGeoFM:
+				mMethod = "RankGeoFM";
+				return null;
+			case Algorithms.xQuAD:
+				mMethod = "xQuAD";
+				return "--item-attributes=/Volumes/Tyr/Projects/UFMG/Apocalypse/datasets/NYC/reduced/attributes.csv";
+			default:
+				return null;
+			}
+		}
+
 
 		void ReorganizeFiles ()
 		{
@@ -198,8 +269,9 @@ namespace Baselines
 				var candidatesChecked = new Dictionary<int, double> ();
 				foreach (var item2 in item.Candidates) {
 					var coord = pois [item2];
-					var distance = DistanceHelper.Distance (item.Coordinates.Latitude, item.Coordinates.Longitude,
-											 coord.Latitude, coord.Longitude);
+					var distance = 0;
+					//var distance = DistanceHelper.Distance (item.Coordinates.Latitude, item.Coordinates.Longitude,
+					//						 coord.Latitude, coord.Longitude);
 					candidatesChecked.Add (item2, distance);
 				}
 

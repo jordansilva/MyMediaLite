@@ -96,7 +96,10 @@ namespace Baselines.Commands
 
 				var result = Evaluate ();
 				MyMediaLite.Helper.Utils.SaveRank ("mostpopular", result);
-				Log ("default_user=" + ((MostPopular)Recommender).ByUser, result.GetMetric ("MRR"));
+				foreach (var metric in result.Metrics) {
+					var desc = "default_user=" + ((MostPopular)Recommender).ByUser;
+					log.Info (string.Format ("{0}\t\t-\t{1} = {2}", desc, metric.Item1, metric.Item2));
+				}
 			}
 		}
 

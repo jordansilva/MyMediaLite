@@ -27,17 +27,22 @@ using System.IO;
 namespace Baselines.Commands
 {
 
-	public class RankGeoFMCommand : Command
+	public class RankGeoFMKNNCommand : Command
 	{
 		private static readonly log4net.ILog log = log4net.LogManager.GetLogger (System.Reflection.MethodBase.GetCurrentMethod ().DeclaringType);
 
 		//ITimedRatings FeedbackRatings;
 		IList<POI> Items;
 		IList<User> Users;
+		IMapping user_mappings;
+		IMapping item_mappings;
 		uint iterations = 1000;
 		bool isPaperVersion = true;
 
-		public RankGeoFMCommand (string training, string test) : base (typeof (RankGeoFM))
+		IList<Checkin> FeedbackCheckins;
+
+
+		public RankGeoFMKNNCommand (string training, string test) : base (typeof (RankGeoFMKNN))
 		{
 			path_training = training;
 			path_test = test;
@@ -71,55 +76,52 @@ namespace Baselines.Commands
 				Console.WriteLine ("Loaded!");
 			}
 
-			((RankGeoFM)Recommender).Items = Items;
-			((RankGeoFM)Recommender).Users = Users;
-			((RankGeoFM)Recommender).IsPaperVersion = isPaperVersion;
-			((RankGeoFM)Recommender).MaxIterations = iterations;
+			((RankGeoFMKNN)Recommender).Items = Items;
+			((RankGeoFMKNN)Recommender).Users = Users;
+			((RankGeoFMKNN)Recommender).IsPaperVersion = isPaperVersion;
+			((RankGeoFMKNN)Recommender).MaxIterations = iterations;
 
 			if (Feedback != null)
-				((RankGeoFM)Recommender).Feedback = Feedback;
+				((RankGeoFMKNN)Recommender).Feedback = Feedback;
 
-
-
+			if (FeedbackCheckins != null)
+				((RankGeoFMKNN)Recommender).FeedbackCheckins = FeedbackCheckins;
 			//if (FeedbackRatings != null)
-			//	((RankGeoFM)Recommender).Ratings = FeedbackRatings;
+			//  ((RankGeoFMKNN)Recommender).Ratings = FeedbackRatings;
 
 			if (TestFeedback != null)
-				((RankGeoFM)Recommender).Validation = TestFeedback;
+				((RankGeoFMKNN)Recommender).Validation = TestFeedback;
 
-			if (user_mapping != null)
-				((RankGeoFM)Recommender).UserMapping = user_mapping;
+			if (user_mappings != null)
+				((RankGeoFMKNN)Recommender).UserMapping = user_mappings;
 
-			if (item_mapping != null)
-				((RankGeoFM)Recommender).ItemMapping = item_mapping;
+			if (item_mappings != null)
+				((RankGeoFMKNN)Recommender).ItemMapping = item_mappings;
 		}
 
 		protected override void Init ()
 		{
-			user_mapping = new IdentityMapping ();
-			item_mapping = new IdentityMapping ();
+			user_mappings = new IdentityMapping ();
+			item_mappings = new IdentityMapping ();
 
 			if (File.Exists ("user.mapping")) {
-				user_mapping = "user.mapping".LoadMapping ();
-				item_mapping = "item.mapping".LoadMapping ();
+				user_mappings = "user.mapping".LoadMapping ();
+				item_mappings = "item.mapping".LoadMapping ();
 			}
 
 			if (!string.IsNullOrEmpty (path_training)) {
 				Console.WriteLine ("Loading training data");
-				Feedback = ItemData.Read (path_training, user_mapping, item_mapping, true);
-				//FeedbackRatings = CustomTimedRatingData.Read (path_training,
-				//											  user_mappings,
-				//											  item_mappings,
-				//											  TestRatingFileFormat.WITHOUT_RATINGS, true);
+				Feedback = ItemData.Read (path_training, user_mappings, item_mappings, true);
+				FeedbackCheckins = MyMediaLite.Helper.Utils.ReadCheckins (path_training);
 			}
 
 			if (!string.IsNullOrEmpty (path_test)) {
 				Console.WriteLine ("Loading test data");
-				TestFeedback = ItemData.Read (path_test, user_mapping, item_mapping, true);
+				TestFeedback = ItemData.Read (path_test, user_mappings, item_mappings, true);
 			}
 
-			user_mapping.SaveMapping ("user.mapping");
-			item_mapping.SaveMapping ("item.mapping");
+			user_mappings.SaveMapping ("user.mapping");
+			item_mappings.SaveMapping ("item.mapping");
 
 			//if (!string.IsNullOrEmpty (path_test)) {
 			//  Console.WriteLine ("Loading test data");
@@ -140,27 +142,28 @@ namespace Baselines.Commands
 			//γ = 0.0001f;
 			//α = 0.2f;
 
-			((RankGeoFM)Recommender).Items = Items;
-			((RankGeoFM)Recommender).Users = Users;
-			//((RankGeoFM)Recommender).Ratings = FeedbackRatings;
-			((RankGeoFM)Recommender).Feedback = Feedback;
-			((RankGeoFM)Recommender).Validation = TestFeedback;
-			((RankGeoFM)Recommender).UserMapping = user_mapping;
-			((RankGeoFM)Recommender).ItemMapping = item_mapping;
-			((RankGeoFM)Recommender).IsPaperVersion = isPaperVersion;
-			((RankGeoFM)Recommender).MaxIterations = iterations;
+			((RankGeoFMKNN)Recommender).Items = Items;
+			((RankGeoFMKNN)Recommender).Users = Users;
+			//((RankGeoFMKNN)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFMKNN)Recommender).Feedback = Feedback;
+			((RankGeoFMKNN)Recommender).FeedbackCheckins = FeedbackCheckins;
+			((RankGeoFMKNN)Recommender).Validation = TestFeedback;
+			((RankGeoFMKNN)Recommender).UserMapping = user_mappings;
+			((RankGeoFMKNN)Recommender).ItemMapping = item_mappings;
+			((RankGeoFMKNN)Recommender).IsPaperVersion = isPaperVersion;
+			((RankGeoFMKNN)Recommender).MaxIterations = iterations;
 
 			var t = Wrap.MeasureTime (Recommender.Train);
-			Console.WriteLine ("RankGeoFM: {0} seconds", t.TotalSeconds);
+			Console.WriteLine ("RankGeoFMKNN: {0} seconds", t.TotalSeconds);
 		}
 
 		public void Eval ()
 		{
 			Console.WriteLine ("Loading model...");
-			CreateModel (typeof (RankGeoFM));
-			((RankGeoFM)Recommender).Items = Items;
-			//((RankGeoFM)Recommender).Ratings = FeedbackRatings;
-			((RankGeoFM)Recommender).LoadModel ("");
+			CreateModel (typeof (RankGeoFMKNN));
+			((RankGeoFMKNN)Recommender).Items = Items;
+			//((RankGeoFMKNN)Recommender).Ratings = FeedbackRatings;
+			((RankGeoFMKNN)Recommender).LoadModel ("");
 
 			Console.WriteLine ("Evaluating");
 			var results = MyMediaLite.Eval.Items.Evaluate (Recommender, TestFeedback, Feedback, n: 500);
@@ -170,7 +173,7 @@ namespace Baselines.Commands
 
 			//MyMediaLite.Eval.Items.Evaluate(Recommender, Feedback, Feedback, 
 			//Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
-			//string filename = string.Format ("RankGeoFM");
+			//string filename = string.Format ("RankGeoFMKNN");
 			//MyMediaLite.Helper.Utils.SaveRank (filename, result);
 		}
 
@@ -205,7 +208,7 @@ namespace Baselines.Commands
 
 		void Log (double metric)
 		{
-			log.Info (string.Format ("RankGeoFM MRR={0}", metric));
+			log.Info (string.Format ("RankGeoFMKNN MRR={0}", metric));
 		}
 
 		public override void Evaluate (string filename)
@@ -218,9 +221,8 @@ namespace Baselines.Commands
 				}
 
 				var result = Evaluate ();
-				MyMediaLite.Helper.Utils.SaveRank ("rankgeofm", result);
-				foreach (var metric in result.Metrics)
-					log.Info (string.Format ("{0} = {1}", metric.Item1, metric.Item2));
+				MyMediaLite.Helper.Utils.SaveRank ("rankgeofmKNN", result);
+				Log (result.GetMetric ("MRR"));
 			}
 		}
 

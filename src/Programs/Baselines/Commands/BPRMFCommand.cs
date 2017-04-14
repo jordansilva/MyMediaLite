@@ -37,22 +37,22 @@ namespace Baselines.Commands
 
 		public BPRMFCommand (string training, string test) : base (training, test, typeof (MultiCoreBPRMF))
 		{
-			((MultiCoreBPRMF)Recommender).BiasReg = 0;
-			((MultiCoreBPRMF)Recommender).NumFactors = 10;
-			((MultiCoreBPRMF)Recommender).RegU = 0.0025f;
-			((MultiCoreBPRMF)Recommender).RegI = 0.0025f;
-			((MultiCoreBPRMF)Recommender).RegJ = 0.00025f;
-			((MultiCoreBPRMF)Recommender).NumIter = 25;
-			((MultiCoreBPRMF)Recommender).LearnRate = 0.05f;
-			((MultiCoreBPRMF)Recommender).UniformUserSampling = true;
-			((MultiCoreBPRMF)Recommender).WithReplacement = false;
-			((MultiCoreBPRMF)Recommender).UpdateJ = true;
+			//((BPRMF)Recommender).BiasReg = 0;
+			((BPRMF)Recommender).NumFactors = 10;
+			((BPRMF)Recommender).RegU = 0.0025f;
+			((BPRMF)Recommender).RegI = 0.0025f;
+			((BPRMF)Recommender).RegJ = 0.00025f;
+			((BPRMF)Recommender).NumIter = 25;
+			((BPRMF)Recommender).LearnRate = 0.05f;
+			//((BPRMF)Recommender).UniformUserSampling = false;
+			//((BPRMF)Recommender).WithReplacement = true;
+			((BPRMF)Recommender).UpdateJ = true;
 		}
 
 		protected override void Init ()
 		{
 			base.Init ();
-			((MultiCoreBPRMF)Recommender).Feedback = Feedback;
+			((BPRMF)Recommender).Feedback = Feedback;
 		}
 
 		public override void Tunning ()
@@ -60,13 +60,14 @@ namespace Baselines.Commands
 			if (Feedback == null || Feedback.Count == 0)
 				throw new Exception ("Training data can not be null");
 
-			if (Test == null || Test.Count == 0)
+			if (Test == null && TestFeedback == null || TestFeedback.Count == 0 && Test.Count == 0)
 				throw new Exception ("Test data can not be null");
+
+			Console.WriteLine (Feedback.Statistics (TestFeedback));
 
 			log.Info ("Tunning Regularization parameter");
 			TunningRegularization ();
 
-			REGULARIZATION = new float [] { 0.01f, 0.03f, 0.0025f };
 			log.Info ("Tunning Latent Factors parameter");
 			TunningLatentFactors ();
 
@@ -76,8 +77,8 @@ namespace Baselines.Commands
 
 		void TunningRegularization ()
 		{
-			var num_factors = ((MultiCoreBPRMF)Recommender).NumFactors;
-			var learnrate = ((MultiCoreBPRMF)Recommender).LearnRate;
+			var num_factors = ((BPRMF)Recommender).NumFactors;
+			var learnrate = ((BPRMF)Recommender).LearnRate;
 
 			var mrr_tunning = new List<Tuple<float, double>> ();
 
@@ -96,7 +97,7 @@ namespace Baselines.Commands
 		void TunningLatentFactors ()
 		{
 			var mrr_tunning = new List<Tuple<uint, double>> ();
-			var learnrate = ((MultiCoreBPRMF)Recommender).LearnRate;
+			var learnrate = ((BPRMF)Recommender).LearnRate;
 
 			foreach (var reg in REGULARIZATION) {
 				foreach (var num_factors in LATENT_FACTORS) {
@@ -140,14 +141,14 @@ namespace Baselines.Commands
 			QueryResult result = null;
 			while (evaluate) {
 				try {
-					CreateModel (typeof (MultiCoreBPRMF));
-					((MultiCoreBPRMF)Recommender).Feedback = Feedback;
-					((MultiCoreBPRMF)Recommender).NumIter = 25;
-					((MultiCoreBPRMF)Recommender).NumFactors = num_factors;
-					((MultiCoreBPRMF)Recommender).LearnRate = learn_rate;
-					((MultiCoreBPRMF)Recommender).RegI = regularization;
-					((MultiCoreBPRMF)Recommender).RegU = regularization;
-					((MultiCoreBPRMF)Recommender).RegJ = regularization * 0.1f;
+					CreateModel (typeof (BPRMF));
+					((BPRMF)Recommender).Feedback = Feedback;
+					((BPRMF)Recommender).NumIter = 25;
+					((BPRMF)Recommender).NumFactors = num_factors;
+					((BPRMF)Recommender).LearnRate = learn_rate;
+					((BPRMF)Recommender).RegI = regularization;
+					((BPRMF)Recommender).RegU = regularization;
+					((BPRMF)Recommender).RegJ = regularization * 0.1f;
 
 					TimeSpan t = Wrap.MeasureTime (delegate () {
 						Train ();
@@ -155,6 +156,9 @@ namespace Baselines.Commands
 					});
 
 					Console.WriteLine ("Training and Evaluate model: {0} seconds", t.TotalSeconds);
+
+					foreach (var metric in result.Metrics)
+						log.Info (string.Format ("{0} = {1}", metric.Item1, metric.Item2));
 
 					double mrr = result.GetMetric ("MRR");
 					if (mrr >= best_mrr) {
@@ -184,15 +188,18 @@ namespace Baselines.Commands
 		{
 			if (!string.IsNullOrEmpty (filename)) {
 				Console.WriteLine ("Loading test data");
-				if (string.IsNullOrEmpty(path_test) || !path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
+				if (string.IsNullOrEmpty (path_test) || !path_test.Equals (filename, StringComparison.InvariantCultureIgnoreCase)) {
 					Test = LoadTest (filename);
 					TestFeedback = LoadPositiveFeedback (filename, ItemDataFileFormat.IGNORE_FIRST_LINE);
 				}
 
 				var result = Evaluate ();
 				MyMediaLite.Helper.Utils.SaveRank ("bprmf", result);
-				Log (((MultiCoreBPRMF)Recommender).NumFactors, ((MultiCoreBPRMF)Recommender).RegI, 
-				     ((MultiCoreBPRMF)Recommender).LearnRate, result.GetMetric ("MRR"));
+				Log (((BPRMF)Recommender).NumFactors, ((BPRMF)Recommender).RegI,
+					 ((BPRMF)Recommender).LearnRate, result.GetMetric ("MRR"));
+
+				foreach (var metric in result.Metrics)
+					log.Info (string.Format ("{0} = {1}", metric.Item1, metric.Item2));
 			}
 		}
 
@@ -201,20 +208,20 @@ namespace Baselines.Commands
 			base.SetupOptions (args);
 
 			var options = new OptionSet {
-				{ "iter=", v => ((MultiCoreBPRMF)Recommender).NumIter = uint.Parse(v)},
-				{ "num-factors=", v => ((MultiCoreBPRMF)Recommender).NumFactors = uint.Parse(v)},
-				{ "regularization=", v => ((MultiCoreBPRMF)Recommender).RegU = float.Parse(v)},
-				{ "learn-rate=", v => ((MultiCoreBPRMF)Recommender).LearnRate = float.Parse(v)}};
+				{ "iter=", v => ((BPRMF)Recommender).NumIter = uint.Parse(v)},
+				{ "num-factors=", v => ((BPRMF)Recommender).NumFactors = uint.Parse(v)},
+				{ "regularization=", v => ((BPRMF)Recommender).RegU = float.Parse(v)},
+				{ "learn-rate=", v => ((BPRMF)Recommender).LearnRate = float.Parse(v)}};
 
 			options.Parse (args);
 
-			((MultiCoreBPRMF)Recommender).RegI = ((MultiCoreBPRMF)Recommender).RegU;
-			((MultiCoreBPRMF)Recommender).RegJ = ((MultiCoreBPRMF)Recommender).RegI * 0.1f;
-			                             
+			((BPRMF)Recommender).RegI = ((BPRMF)Recommender).RegU;
+			((BPRMF)Recommender).RegJ = ((BPRMF)Recommender).RegI * 0.1f;
+
 			log.Info ("Parameters configured!");
-			log.Info ("Num Factors: " + ((MultiCoreBPRMF)Recommender).NumFactors);
-			log.Info ("Regularization: " + ((MultiCoreBPRMF)Recommender).RegU);
-			log.Info ("Learn Rate: " + ((MultiCoreBPRMF)Recommender).LearnRate);
+			log.Info ("Num Factors: " + ((BPRMF)Recommender).NumFactors);
+			log.Info ("Regularization: " + ((BPRMF)Recommender).RegU);
+			log.Info ("Learn Rate: " + ((BPRMF)Recommender).LearnRate);
 
 
 		}

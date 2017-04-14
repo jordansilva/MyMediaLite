@@ -186,6 +186,9 @@ namespace Baselines.Commands
 				MyMediaLite.Helper.Utils.SaveRank ("wbprmf", result);
 				Log (((WeightedBPRMF)Recommender).NumFactors, ((WeightedBPRMF)Recommender).RegI,
 					 ((WeightedBPRMF)Recommender).LearnRate, result.GetMetric ("MRR"));
+
+				foreach (var metric in result.Metrics)
+					log.Info (string.Format ("{0} = {1}", metric.Item1, metric.Item2));
 			}
 		}
 

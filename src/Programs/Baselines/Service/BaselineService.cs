@@ -91,7 +91,7 @@ namespace Baselines.Service
 			foreach (Checkin item in Test) {
 				i++;
 				IList<Tuple<int, float>> ratings = baseline.Predict (item.User, item.Candidates);
-				queryResult.Add (i, ratings, string.Format ("u{0}", item.User));
+				queryResult.Add (i, item.User, item.Item, ratings);
 
 
 				List<int> itemsId = ratings.Select (x => x.Item1).ToList ();
